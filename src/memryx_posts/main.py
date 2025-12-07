@@ -259,22 +259,22 @@ class Post:
         Returns:
             image_data: Preprocessed image data ready for inference.
         """
-        self.original_imgage = img
+        self.original_img = img
 
         # Get the height and width of the input image
-        [self.img_height, self.img_width, _] = self.original_imgage.shape
+        self.img_height, self.img_width, _ = self.original_img.shape
 
         # Prepare a square image for inference
         self.length = max((self.img_height, self.img_width))
-        self.image = np.zeros((self.length, self.length, 3), np.uint8)
-        self.image[0 : self.img_height, 0 : self.img_width] = self.original_imgage
+        self.img = np.zeros((self.length, self.length, 3), np.uint8)
+        self.img[0 : self.img_height, 0 : self.img_width] = self.original_img
 
         # Calculate scale factor
         scale = self.length / 640
 
         # Preprocess the image and prepare blob for model
         blob = cv2.dnn.blobFromImage(
-            self.image, scalefactor=1 / 255, size=(640, 640), swapRB=True
+            self.img, scalefactor=1 / 255, size=(640, 640), swapRB=True
         )
 
         if self.model_type == "tflite":

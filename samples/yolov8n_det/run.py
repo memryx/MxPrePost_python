@@ -22,7 +22,7 @@ import cv2
 from queue import Queue, Full
 import queue
 from threading import Thread
-from memryx import MultiStreamAsyncAccl
+# from memryx import MultiStreamAsyncAccl
 # from yolov8 import YoloV8 as YoloModel
 from memryx_posts import Post
 from collections import defaultdict
@@ -110,25 +110,33 @@ class Yolo8sMxa:
         """
         Start inference on the MXA using multiple streams.
         """
-        if self.model_type != "numpy":
-            accl = MultiStreamAsyncAccl(
-                dfp=self.dfp
-            )  # Initialize the accelerator with DFP
-            accl.set_postprocessing_model(
-                self.post_model, model_idx=0
-            )  # Set the post-processing model
-        else:
-            accl = MultiStreamAsyncAccl(
-                dfp=self.dfp, use_model_shape=(False, False)
-            )  # Initialize the accelerator with DFP
+        # if self.model_type != "numpy":
+        #     accl = MultiStreamAsyncAccl(
+        #         dfp=self.dfp
+        #     )  # Initialize the accelerator with DFP
+        #     accl.set_postprocessing_model(
+        #         self.post_model, model_idx=0
+        #     )  # Set the post-processing model
+        # else:
+        #     accl = MultiStreamAsyncAccl(
+        #         dfp=self.dfp, use_model_shape=(False, False)
+        #     )  # Initialize the accelerator with DFP
 
         if self.show:
             self.display_thread.start()  # Start the display thread
 
-        # Connect input and output streams for the accelerator
-        accl.connect_streams(self.capture_and_preprocess, self.postprocess, self.num_streams)
-        accl.wait()
+        print ("Run with new binding")
+        import mxapi
+        local = False
+        accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
+        # accl.connect_post_model(args.post_model)
 
+        for i in range(self.num_streams):
+            accl.connect_stream(self.capture_and_preprocess, self.postprocess, stream_id=i)
+
+        accl.start()
+        accl.wait()
+        
         self.done = True
 
         # Join display thread
@@ -142,8 +150,9 @@ class Yolo8sMxa:
         """
         # if self.srcs_are_cams[stream_idx]:
         while True:
+            
             got_frame, frame = self.streams[stream_idx].read()
-
+            
             if not got_frame or self.done:
                 self.streams_idx[stream_idx] = False
                 return None
@@ -167,7 +176,7 @@ class Yolo8sMxa:
 
 
 ###################################################################################################
-    def postprocess(self, stream_idx, *mxa_output):
+    def postprocess(self, mxa_output, stream_idx):
         """
         Post-process the output from MXA.
         """
@@ -286,8 +295,8 @@ def main(args):
     yolo8s_inf.run()  # Start inference
 
     # Print final average FPS for each stream
-    for i in range(yolo8s_inf.num_streams):
-        sys.stdout.write("\033[F\033[K")
+    # for i in range(yolo8s_inf.num_streams):
+    #     sys.stdout.write("\033[F\033[K")
     for i in range(yolo8s_inf.num_streams):
         print(f'Final Avg FPS for Stream {i}: {yolo8s_inf.get_avg_fps(i):.2f}')
 
