@@ -27,6 +27,7 @@ from threading import Thread
 from memryx_posts import Post
 from collections import defaultdict
 import sys
+import mxpipe
 
 video_stream_1 = '/home/mixtile/memryx/media/people_1.mp4'
 video_stream_2 = '/home/mixtile/memryx/media/dataset_2.mp4'
@@ -74,6 +75,8 @@ class Yolo8sMxa:
         self.writer = {i: None for i in range(self.num_streams)}
         self.srcs_are_cams = {i: True for i in range(self.num_streams)}
         self.frame_count = {i: 0 for i in range(self.num_streams)}
+        
+        self.pipe = mxpipe.Counter()
 
         # FPS calculation related
         self.frame_count = defaultdict(int)
@@ -132,7 +135,7 @@ class Yolo8sMxa:
         # accl.connect_post_model(args.post_model)
 
         for i in range(self.num_streams):
-            accl.connect_stream(self.capture_and_preprocess, self.postprocess, stream_id=i)
+            accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
 
         accl.start()
         accl.wait()
@@ -144,7 +147,7 @@ class Yolo8sMxa:
             self.display_thread.join()
 
 ###################################################################################################
-    def capture_and_preprocess(self, stream_idx):
+    def in_callback(self, stream_idx):
         """
         Captures a frame for the video device and pre-processes it.
         """
@@ -176,10 +179,13 @@ class Yolo8sMxa:
 
 
 ###################################################################################################
-    def postprocess(self, mxa_output, stream_idx):
+    def out_callback(self, mxa_output, stream_idx):
         """
         Post-process the output from MXA.
         """
+        
+        self.pipe.increment()
+        
         # dets = self.model[stream_idx].postprocess(mxa_output)  # Get detection results
         dets = self.post.postprocess(mxa_output)  # Get detection results
 
