@@ -75,8 +75,8 @@ class Yolo8sMxa:
         self.writer = {i: None for i in range(self.num_streams)}
         self.srcs_are_cams = {i: True for i in range(self.num_streams)}
         self.frame_count = {i: 0 for i in range(self.num_streams)}
-        
-        self.pipe = mxpipe.Counter()
+
+        self.pipe = mxpipe.Pipeline()
 
         # FPS calculation related
         self.frame_count = defaultdict(int)
@@ -184,7 +184,16 @@ class Yolo8sMxa:
         Post-process the output from MXA.
         """
         
-        self.pipe.increment()
+        # self.pipe.increment()
+        dets = self.pipe.postprocess(mxa_output)
+        for d in dets:
+            print (d.xywh)
+            print (d.conf)
+            print (d.cls_id)
+            print (d.cls_name)
+            
+        
+        ### ==================================================
         
         # dets = self.model[stream_idx].postprocess(mxa_output)  # Get detection results
         dets = self.post.postprocess(mxa_output)  # Get detection results
