@@ -76,8 +76,6 @@ class Yolo8sMxa:
         self.srcs_are_cams = {i: True for i in range(self.num_streams)}
         self.frame_count = {i: 0 for i in range(self.num_streams)}
 
-        self.pipe = mxpipe.Pipeline()
-
         # FPS calculation related
         self.frame_count = defaultdict(int)
         self.start_ms = defaultdict(int)
@@ -103,7 +101,10 @@ class Yolo8sMxa:
             # self.model[i] = YoloModel(stream_img_size=(self.dims[i][1], self.dims[i][0], 3), model_type=self.model_type)
             self.post = Post(model_type="numpy")
 
-
+        # init MXPipe pipeline
+        self.pipe = mxpipe.Pipeline(int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                                    int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        
         # Start display thread
         if self.show:
             self.display_thread = Thread(target=self.display)
@@ -174,7 +175,12 @@ class Yolo8sMxa:
                     
                 # Pre-process the frame using the corresponding model
                 # frame = self.model[stream_idx].preprocess(frame)
-                frame = self.post.preprocess(frame)
+                # frame = self.post.preprocess(frame)
+
+                # TODO: get frame with shape based on use_model_shape
+                frame = self.pipe.preprocess(frame)
+                frame = frame.reshape(640, 640, 1, 3)
+
                 return frame
 
 
@@ -184,19 +190,12 @@ class Yolo8sMxa:
         Post-process the output from MXA.
         """
         
-        # self.pipe.increment()
         dets = self.pipe.postprocess(mxa_output)
-        for d in dets:
-            print (d.xywh)
-            print (d.conf)
-            print (d.cls_id)
-            print (d.cls_name)
-            
         
         ### ==================================================
         
         # dets = self.model[stream_idx].postprocess(mxa_output)  # Get detection results
-        dets = self.post.postprocess(mxa_output)  # Get detection results
+        # dets = self.post.postprocess(mxa_output)  # Get detection results
 
         # Queue detection results for display
         if self.show:
@@ -204,6 +203,54 @@ class Yolo8sMxa:
 
         # Calculate FPS
         self.update_fps(stream_idx)
+    
+    def display(self):
+        """
+        Displays the processed frames with detections in separate windows.
+        """
+        while not self.done:
+            # Iterate through each stream for displaying frames
+            for stream_idx in range(self.num_streams):
+                
+                try:
+                    # Python blocky queue, no need to check if not queue.empty()
+                    frame = self.cap_queue[stream_idx].get(timeout=2)
+                    dets = self.dets_queue[stream_idx].get(timeout=2)
+                except queue.Empty:
+                    break 
+
+                self.cap_queue[stream_idx].task_done()
+                self.dets_queue[stream_idx].task_done()
+
+                # Draw detection boxes
+                for d in dets:
+                    x1, y1, w, h = d.xywh
+                    x1, y1, w, h = int(x1), int(y1), int(w), int(h)
+
+                    color = tuple(int(c) for c in self.color_wheel[stream_idx][d.cls_id % 20])
+
+                    # Draw bounding boxes
+                    frame = cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), color, 2)
+
+                    # Add class label
+                    frame = cv2.putText(frame, d.cls_name, (x1 + 2, y1 - 5),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                # Add FPS to frame
+                fps_text = f"{self.fps_number[stream_idx]:.2f}"
+                frame = cv2.putText(frame, fps_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+                window_name = f"Stream {stream_idx} - YOLOv8"
+                cv2.imshow(window_name, frame)
+
+            # Exit if 'q' is pressed
+            if cv2.waitKey(1) == ord('q'):
+                self.done = True
+
+        # Close all windows and release resources after processing
+        cv2.destroyAllWindows()
+        for stream in self.streams:
+            stream.release()
         
     def update_fps(self, stream_idx):
 
@@ -241,54 +288,6 @@ class Yolo8sMxa:
             return np.mean(self.history_fps[stream_idx])
         return 0
 
-###################################################################################################
-    def display(self):
-        """
-        Displays the processed frames with detections in separate windows.
-        """
-        while not self.done:
-            # Iterate through each stream for displaying frames
-            for stream_idx in range(self.num_streams):
-                
-                try:
-                    # Python blocky queue, no need to check if not queue.empty()
-                    frame = self.cap_queue[stream_idx].get(timeout=2)
-                    dets = self.dets_queue[stream_idx].get(timeout=2)
-                except queue.Empty:
-                    break 
-
-                self.cap_queue[stream_idx].task_done()
-                self.dets_queue[stream_idx].task_done()
-
-                # Draw detection boxes
-                for d in dets:
-                    x1, y1, w, h = d.xywh
-                    color = tuple(int(c) for c in self.color_wheel[stream_idx][d.class_id % 20])
-
-                    # Draw bounding boxes
-                    frame = cv2.rectangle(frame, (int(x1), int(y1)), (int(x1 + w), int(y1 + h)), color, 2)
-
-                    # Add class label
-                    frame = cv2.putText(frame, d.class_name, (x1 + 2, y1 - 5),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-                # Add FPS to frame
-                fps_text = f"{self.fps_number[stream_idx]:.2f}"
-                frame = cv2.putText(frame, fps_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-
-                window_name = f"Stream {stream_idx} - YOLOv8"
-                cv2.imshow(window_name, frame)
-
-            # Exit if 'q' is pressed
-            if cv2.waitKey(1) == ord('q'):
-                self.done = True
-
-        # Close all windows and release resources after processing
-        cv2.destroyAllWindows()
-        for stream in self.streams:
-            stream.release()
-
-###################################################################################################
 
 def main(args):
     """

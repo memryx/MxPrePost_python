@@ -60,7 +60,7 @@ endif()
 add_subdirectory(pybind11)  # Clone from https://github.com/pybind/pybind11
 
 # This will automatically name the output module "mxpipe.<python_abi_tag>.so"
-pybind11_add_module(mxpipe bindings.cpp)
+pybind11_add_module(mxpipe bindings.cpp yolov8.cpp)
 
 # find the path to the site-packages/numpy/core/include/ directory for the currently
 # active Python environment, and add that to the target_include_directories
@@ -70,10 +70,13 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+find_package(OpenCV REQUIRED)
+
 # Include directories
 target_include_directories(mxpipe PRIVATE
                            ${CMAKE_SOURCE_DIR}
                            ${PYTHON_NUMPY_INCLUDE_DIR}
+                           ${OpenCV_INCLUDE_DIRS}
                            /usr/include/)
 
-target_link_libraries(mxpipe PRIVATE mx_accl)
+target_link_libraries(mxpipe PRIVATE mx_accl ${OpenCV_LIBS})
