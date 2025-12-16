@@ -1,14 +1,23 @@
 ## original cmake
 cmake_minimum_required(VERSION 3.14)
-project(mxpipe)
+project(mxproc)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(CMAKE_CXX_STANDARD 17)
 
 #####################################################################################################
+
+if(BUILD_TYPE MATCHES "Debug")
+    message("Debug mode")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pipe -fPIC -O0 -g -fopenmp")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pipe -fPIC -O3 -fopenmp")
+endif()
+
+
 # CFLAGS same as uppper mx_accl CMakeLists
-set(CMAKE_COMMON_CFLAGS "-Wall -Wextra -pipe -fPIC -O2 -fvect-cost-model=dynamic -fsimd-cost-model=unlimited -floop-unroll-and-jam -ftree-loop-if-convert -ftree-loop-im -ftree-loop-ivcanon -funswitch-loops -fgcse-after-reload -fipa-cp-clone -ftree-loop-distribution -ftree-partial-pre -fsplit-paths -fpredictive-commoning -fno-math-errno -funsafe-math-optimizations -ffinite-math-only -fno-signed-zeros -fno-trapping-math -fno-signaling-nans -fcx-limited-range -fopenmp -Wno-unused-variable -Wno-alloc-size-larger-than")
+set(CMAKE_COMMON_CFLAGS "-Wall -Wextra -pipe -fPIC -fvect-cost-model=dynamic -fsimd-cost-model=unlimited -floop-unroll-and-jam -ftree-loop-if-convert -ftree-loop-im -ftree-loop-ivcanon -funswitch-loops -fgcse-after-reload -fipa-cp-clone -ftree-loop-distribution -ftree-partial-pre -fsplit-paths -fpredictive-commoning -fno-math-errno -funsafe-math-optimizations -ffinite-math-only -fno-signed-zeros -fno-trapping-math -fno-signaling-nans -fcx-limited-range -fopenmp -Wno-unused-variable -Wno-alloc-size-larger-than")
 
 set(CMAKE_X86_FLAGS_BASE "-mpopcnt -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mfxsr -mcx16 -msahf -mpclmul -mfsgsbase -mmovbe -mprfchw -mxsave -mxsaveopt -mtune=generic")
 set(CMAKE_X86_FLAGS_AVX2 "-mavx -mavx2 -mfma -mbmi -mbmi2 -maes -mf16c -mlzcnt -madx -mxsavec -mxsaves -mclflushopt")
@@ -59,8 +68,13 @@ endif()
 # You can also use find_package(pybind11 REQUIRED) if installed system-wide
 add_subdirectory(pybind11)  # Clone from https://github.com/pybind/pybind11
 
-# This will automatically name the output module "mxpipe.<python_abi_tag>.so"
-pybind11_add_module(mxpipe bindings.cpp yolov8.cpp)
+# This will automatically name the output module "mxproc.<python_abi_tag>.so"
+pybind11_add_module(mxproc bindings.cpp)
+
+# TODO: remove this
+set(BASIC_DEBUG_FLAGS "-Wall -Wextra -fPIC -O0 -g -fopenmp -fno-omit-frame-pointer -Wno-unused-variable")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${BASIC_DEBUG_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BASIC_DEBUG_FLAGS}")
 
 # find the path to the site-packages/numpy/core/include/ directory for the currently
 # active Python environment, and add that to the target_include_directories
@@ -73,10 +87,11 @@ execute_process(
 find_package(OpenCV REQUIRED)
 
 # Include directories
-target_include_directories(mxpipe PRIVATE
+target_include_directories(mxproc PRIVATE
                            ${CMAKE_SOURCE_DIR}
                            ${PYTHON_NUMPY_INCLUDE_DIR}
                            ${OpenCV_INCLUDE_DIRS}
-                           /usr/include/)
+                           /usr/include/
+                           ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
-target_link_libraries(mxpipe PRIVATE ${OpenCV_LIBS})
+target_link_libraries(mxproc PRIVATE ${OpenCV_LIBS} ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmxproc.so)

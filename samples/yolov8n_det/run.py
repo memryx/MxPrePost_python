@@ -27,7 +27,7 @@ from threading import Thread
 from memryx_posts import Post
 from collections import defaultdict
 import sys
-import mxpipe
+import mxproc
 
 video_stream_1 = '/home/mixtile/memryx/media/people_1.mp4'
 video_stream_2 = '/home/mixtile/memryx/media/dataset_2.mp4'
@@ -102,7 +102,7 @@ class Yolo8sMxa:
             self.post = Post(model_type="numpy")
 
         # init MXPipe pipeline
-        self.pipe = mxpipe.Pipeline(int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+        self.pipe = mxproc.Pipeline(int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
                                     int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         
         # Start display thread
@@ -164,20 +164,16 @@ class Yolo8sMxa:
             if self.srcs_are_cams[stream_idx] and self.cap_queue[stream_idx].full():
                 # drop frame
                 continue
-            else:
-                if self.show:
-                    # Put the frame in the cap_queue to be processed later
-                    try:
-                        self.cap_queue[stream_idx].put(frame, timeout=2)
-                    except Full:
-                        print('Dropped frame')
-                        continue
-                    
-                # TODO: get frame with shape based on use_model_shape
-                frame = self.pipe.preprocess(frame)
-                frame = frame.reshape(640, 640, 1, 3)
+            
+            if self.show:
+                # Put the frame in the cap_queue to be processed later
+                self.cap_queue[stream_idx].put(frame)
+                
+            # TODO: get frame with shape based on use_model_shape
+            frame = self.pipe.preprocess(frame)
+            frame = frame.reshape(640, 640, 1, 3)
 
-                return frame
+            return frame
 
 
 ###################################################################################################
@@ -186,7 +182,7 @@ class Yolo8sMxa:
         Post-process the output from MXA.
         """
         
-        # call postprocess from mxpipe
+        # call postprocess from mxproc
         dets = self.pipe.postprocess(mxa_output)
         
         # Queue detection results for display

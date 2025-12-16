@@ -165,7 +165,7 @@ static int numpy_import_array_wrapper()
     return 0;
 }
 
-PYBIND11_MODULE(mxpipe, m)
+PYBIND11_MODULE(mxproc, m)
 {
     // helper to safely call import_array(), otherwise got segfault when parsing numpy arrays
     numpy_import_array_wrapper();
