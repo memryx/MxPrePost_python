@@ -156,7 +156,6 @@ public:
 
 private:
     YOLOv8 *yolov8_;
-    ;
 };
 
 // helper to safely call import_array()

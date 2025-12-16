@@ -302,10 +302,15 @@ void YOLOv8::draw_result(YOLOv8Result &result, cv::Mat &image)
         class_index = bbox.class_index;
         class_score = bbox.class_score;
 
-        x_min = static_cast<int>((bbox.x_min - padding_width_) / letterbox_ratio_);
-        y_min = static_cast<int>((bbox.y_min - padding_height_) / letterbox_ratio_);
-        x_max = static_cast<int>((bbox.x_max - padding_width_) / letterbox_ratio_);
-        y_max = static_cast<int>((bbox.y_max - padding_height_) / letterbox_ratio_);
+        // x_min = static_cast<int>((bbox.x_min - padding_width_) / letterbox_ratio_);
+        // y_min = static_cast<int>((bbox.y_min - padding_height_) / letterbox_ratio_);
+        // x_max = static_cast<int>((bbox.x_max - padding_width_) / letterbox_ratio_);
+        // y_max = static_cast<int>((bbox.y_max - padding_height_) / letterbox_ratio_);
+
+        x_min = bbox.x_min;
+        y_min = bbox.y_min;
+        x_max = bbox.x_max;
+        y_max = bbox.y_max;
 
         _draw_bbox(image, x_min, y_min, x_max, y_max,
                    bounding_box_colors_[class_index],
@@ -400,6 +405,12 @@ void YOLOv8::_get_detection(std::queue<BBox> &bboxes, int layer_id, float *confi
     float min_y = mxutil_max(center_y - 0.5 * h, .0);
     float max_x = mxutil_min(center_x + 0.5 * w, model_input_width_);
     float max_y = mxutil_min(center_y + 0.5 * h, model_input_height_);
+
+    // convert to raw bbox coordinates
+    min_x = static_cast<int>((min_x - padding_width_) / letterbox_ratio_);
+    min_y = static_cast<int>((min_y - padding_height_) / letterbox_ratio_);
+    max_x = static_cast<int>((max_x - padding_width_) / letterbox_ratio_);
+    max_y = static_cast<int>((max_y - padding_height_) / letterbox_ratio_);
 
     BBox bbox(best_label, best_label_score, min_x, min_y, max_x, max_y);
 

@@ -79,4 +79,4 @@ target_include_directories(mxpipe PRIVATE
                            ${OpenCV_INCLUDE_DIRS}
                            /usr/include/)
 
-target_link_libraries(mxpipe PRIVATE mx_accl ${OpenCV_LIBS})
+target_link_libraries(mxpipe PRIVATE ${OpenCV_LIBS})

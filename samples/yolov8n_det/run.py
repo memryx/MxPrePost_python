@@ -173,10 +173,6 @@ class Yolo8sMxa:
                         print('Dropped frame')
                         continue
                     
-                # Pre-process the frame using the corresponding model
-                # frame = self.model[stream_idx].preprocess(frame)
-                # frame = self.post.preprocess(frame)
-
                 # TODO: get frame with shape based on use_model_shape
                 frame = self.pipe.preprocess(frame)
                 frame = frame.reshape(640, 640, 1, 3)
@@ -190,13 +186,9 @@ class Yolo8sMxa:
         Post-process the output from MXA.
         """
         
+        # call postprocess from mxpipe
         dets = self.pipe.postprocess(mxa_output)
         
-        ### ==================================================
-        
-        # dets = self.model[stream_idx].postprocess(mxa_output)  # Get detection results
-        # dets = self.post.postprocess(mxa_output)  # Get detection results
-
         # Queue detection results for display
         if self.show:
             self.dets_queue[stream_idx].put(dets)
