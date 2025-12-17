@@ -25,7 +25,7 @@ const char* COCO_NAMES[COCO_CLASS_NUMBER] = {
 
 float YOLOv8::intersection_over_union(BBox& bbox_0, BBox& bbox_1, int class_chk) {
     if (class_chk) {
-        if (bbox_0.class_index != bbox_1.class_index)
+        if (bbox_0.cls_id != bbox_1.cls_id)
             return 0.0;
     }
 
@@ -53,7 +53,7 @@ void YOLOv8::non_maximum_suppression(std::queue<BBox>& bboxes, BBox& bbox, float
         bboxes.pop();
         if (intersection_over_union(bbox_0, bbox, 0) > iou) {
             // if two bounding boxes are highly overlapped, keep the one with higher score
-            if (bbox_0.class_score > bbox.class_score) {
+            if (bbox_0.conf > bbox.conf) {
                 bbox_to_be_stored = bbox_0;
                 exit_flag = 1;
             } else {
@@ -85,7 +85,7 @@ void YOLOv8::_draw_bbox(cv::Mat& image,
                         cv::Scalar box_color,
                         cv::Scalar text_color,
                         const char* class_name,
-                        const float class_score) {
+                        const float conf) {
     double font_scale = ((double)image.rows / 640.0);
     double bbox_thickness = font_scale * 3;
     double font_thickness = font_scale * 2;
@@ -96,7 +96,7 @@ void YOLOv8::_draw_bbox(cv::Mat& image,
     cv::rectangle(
             image, cv::Point(x_min, y_min) /*top left*/, cv::Point(x_max, y_max) /*bottom right*/, box_color, bbox_thickness, cv::LINE_4);
 
-    sprintf(text, "%s(%.f%%)", class_name, 100 * class_score);
+    sprintf(text, "%s(%.f%%)", class_name, 100 * conf);
 
     text_size = cv::getTextSize(text, FONT, 2 * font_scale, bbox_thickness, &baseline);
 
@@ -221,17 +221,17 @@ cv::Mat YOLOv8::preprocess(const cv::Mat& image) {
     return padded;  // shape: (640, 640, 3), range [0,1]
 }
 
-void YOLOv8::draw_result(YOLOv8Result& result, cv::Mat& image) {
-    static int y_min, x_min, y_max, x_max, class_index;
-    float class_score;
+void YOLOv8::draw_result(Result& result, cv::Mat& image) {
+    static int y_min, x_min, y_max, x_max, cls_id;
+    float conf;
     std::queue<BBox> bboxes = result.bboxes;
 
     while (!bboxes.empty()) {
         BBox bbox = bboxes.front();
         bboxes.pop();
 
-        class_index = bbox.class_index;
-        class_score = bbox.class_score;
+        cls_id = bbox.cls_id;
+        conf = bbox.conf;
 
         // x_min = static_cast<int>((bbox.x_min - padding_width_) / letterbox_ratio_);
         // y_min = static_cast<int>((bbox.y_min - padding_height_) / letterbox_ratio_);
@@ -248,10 +248,10 @@ void YOLOv8::draw_result(YOLOv8Result& result, cv::Mat& image) {
                    y_min,
                    x_max,
                    y_max,
-                   bounding_box_colors_[class_index],
-                   class_label_colors_[class_index],
-                   class_labels_[class_index],
-                   class_score);
+                   bounding_box_colors_[cls_id],
+                   class_label_colors_[cls_id],
+                   class_labels_[cls_id],
+                   conf);
     }
 
     return;
@@ -349,12 +349,12 @@ void YOLOv8::_get_detection(std::queue<BBox>& bboxes,
     max_x = static_cast<int>((max_x - padding_width_) / letterbox_ratio_);
     max_y = static_cast<int>((max_y - padding_height_) / letterbox_ratio_);
 
-    BBox bbox(best_label, best_label_score, min_x, min_y, max_x, max_y);
+    BBox bbox(min_x, min_y, max_x, max_y, best_label_score, best_label);
 
     non_maximum_suppression(bboxes, bbox, iou_thresh_);
 }
 
-void YOLOv8::postprocess(const std::vector<float*>& outputs, YOLOv8Result& result) {
+void YOLOv8::postprocess(const std::vector<float*>& outputs, Result& result) {
     if (!valid_input_) {
         throw std::runtime_error("Make sure to call ComputePadding() before further processing.");
     }

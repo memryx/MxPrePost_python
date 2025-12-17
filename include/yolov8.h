@@ -46,10 +46,10 @@ class YOLOv8 : public MX::Proc::Processor {
      * @param output_buffers   Vector of pointers to the output buffers from the accelerator.
      * @param result           Reference to the structure where the decoded bounding box results will be stored.
      */
-    void postprocess(const std::vector<float*>& outputs, YOLOv8Result& result) override;
+    void postprocess(const std::vector<float*>& outputs, Result& result) override;
 
     /** @brief Draw detected bounding boxes and labels on the provided image. */
-    void draw_result(YOLOv8Result& result, cv::Mat& image);
+    void draw_result(Result& result, cv::Mat& image);
 
     /** @brief Compute padding values for letterboxing from the display image. */
     void compute_padding(int disp_width, int disp_height);

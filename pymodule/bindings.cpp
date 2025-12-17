@@ -94,8 +94,8 @@ class Pipeline {
         }
 
         // call real postrocess
-        // TODO: remove YOLOv8Result intermediate structure
-        YOLOv8Result mid_res;
+        // TODO: remove Result intermediate structure
+        Result mid_res;
         processor_->postprocess(ofmap_ptrs, mid_res);
 
         // construct final results
@@ -111,8 +111,8 @@ class Pipeline {
             //     (bbox.x_max - bbox.x_min),
             //     (bbox.y_max - bbox.y_min)};
             box.xywh = {bbox.x_min, bbox.y_min, (bbox.x_max - bbox.x_min), (bbox.y_max - bbox.y_min)};
-            box.conf = bbox.class_score;
-            box.cls_id = bbox.class_index;
+            box.conf = bbox.conf;
+            box.cls_id = bbox.cls_id;
 
             // TODO: map class_index to class_name
             box.cls_name = "people";

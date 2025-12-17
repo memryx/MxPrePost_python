@@ -12,7 +12,7 @@ SpacesBeforeTrailingComments: 2
 
 
 ### Line Length / Wrapping
-ColumnLimit: 140
+ColumnLimit: 99
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None

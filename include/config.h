@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <iostream>
 #include <queue>
 #include <vector>
@@ -6,26 +7,56 @@
 namespace MX {
     namespace Proc {
         struct BBox {
-            int class_index;    // class index with maximum confident
-            float class_score;  // class confident(score)
-            float x_min;        // global top-left x relates to model's input feature map size width
-            float y_min;        // global top-left y relates to model's input feature map size height
-            float x_max;        // global bottom-right x relates to model's input feature map size width
-            float y_max;        // global bottom-right y relates to model's input feature map size height
+            float x_min;
+            float y_min;
+            float x_max;
+            float y_max;
+
+            // Bounding box representations
+            std::array<float, 4> xyxy;  // (left, top, right, bottom)
+            std::array<float, 4> xywh;  // (x_center, y_center, width, height)
+
+            float conf = 0.0f;     // confidence score
+            int cls_id = -1;       // class index
+            std::string cls_name;  // class name (optional)
 
             // Default constructor
-            BBox() : class_index(-1), class_score(-1), x_min(-1), y_min(-1), x_max(-1), y_max(-1) {
+            BBox() = default;
+
+            // Constructor with xyxy
+            BBox(float x_min_,
+                 float y_min_,
+                 float x_max_,
+                 float y_max_,
+                 float conf_,
+                 int cls_id_,
+                 const std::string& cls_name_ = "") :
+                x_min(x_min_), y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_),
+                cls_id(cls_id_), cls_name(cls_name_) {
+                update_xyxy();
+                update_xywh();
             }
-            // Parameterized constructor
-            BBox(int _class_index, float _class_socre, float _x_min, float _y_min, float _x_max, float _y_max) :
-                class_index(_class_index), class_score(_class_socre), x_min(_x_min), y_min(_y_min), x_max(_x_max), y_max(_y_max) {
+
+          private:
+            void update_xyxy() {
+                xyxy[0] = x_min;
+                xyxy[1] = y_min;
+                xyxy[2] = x_max;
+                xyxy[3] = y_max;
+            }
+
+            void update_xywh() {
+                xywh[0] = (x_min + x_max) * 0.5f;  // x_center
+                xywh[1] = (y_min + y_max) * 0.5f;  // y_center
+                xywh[2] = x_max - x_min;           // width
+                xywh[3] = y_max - y_min;           // height
             }
         };
 
-        struct YOLOv8Result {
+        struct Result {
             std::queue<BBox> bboxes;
             std::queue<std::vector<std::pair<float, float>>> keypoints;
-            std::queue<std::vector<float>> mask_features;
+            std::queue<std::vector<float>> masks;
         };
 
         struct YoloDetectConfig {
