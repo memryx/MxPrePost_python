@@ -9,21 +9,29 @@
  * only uses 80 classes.
  */
 const char* COCO_NAMES[COCO_CLASS_NUMBER] = {
-        "person",         "bicycle",    "car",           "motorbike",     "aeroplane",   "bus",           "train",
-        "truck",          "boat",       "traffic light", "fire hydrant",  "stop sign",   "parking meter", "bench",
-        "bird",           "cat",        "dog",           "horse",         "sheep",       "cow",           "elephant",
-        "bear",           "zebra",      "giraffe",       "backpack",      "umbrella",    "handbag",       "tie",
-        "suitcase",       "frisbee",    "skis",          "snowboard",     "sports ball", "kite",          "baseball bat",
-        "baseball glove", "skateboard", "surfboard",     "tennis racket", "bottle",      "wine glass",    "cup",
-        "fork",           "knife",      "spoon",         "bowl",          "banana",      "apple",         "sandwich",
-        "orange",         "broccoli",   "carrot",        "hot dog",       "pizza",       "donut",         "cake",
-        "chair",          "sofa",       "pottedplant",   "bed",           "diningtable", "toilet",        "tvmonitor",
-        "laptop",         "mouse",      "remote",        "keyboard",      "cell phone",  "microwave",     "oven",
-        "toaster",        "sink",       "refrigerator",  "book",          "clock",       "vase",          "scissors",
-        "teddy bear",     "hair drier", "toothbrush",
+        "person",        "bicycle",       "car",           "motorbike",
+        "aeroplane",     "bus",           "train",         "truck",
+        "boat",          "traffic light", "fire hydrant",  "stop sign",
+        "parking meter", "bench",         "bird",          "cat",
+        "dog",           "horse",         "sheep",         "cow",
+        "elephant",      "bear",          "zebra",         "giraffe",
+        "backpack",      "umbrella",      "handbag",       "tie",
+        "suitcase",      "frisbee",       "skis",          "snowboard",
+        "sports ball",   "kite",          "baseball bat",  "baseball glove",
+        "skateboard",    "surfboard",     "tennis racket", "bottle",
+        "wine glass",    "cup",           "fork",          "knife",
+        "spoon",         "bowl",          "banana",        "apple",
+        "sandwich",      "orange",        "broccoli",      "carrot",
+        "hot dog",       "pizza",         "donut",         "cake",
+        "chair",         "sofa",          "pottedplant",   "bed",
+        "diningtable",   "toilet",        "tvmonitor",     "laptop",
+        "mouse",         "remote",        "keyboard",      "cell phone",
+        "microwave",     "oven",          "toaster",       "sink",
+        "refrigerator",  "book",          "clock",         "vase",
+        "scissors",      "teddy bear",    "hair drier",    "toothbrush",
 };
 
-float YOLOv8::intersection_over_union(BBox& bbox_0, BBox& bbox_1, int class_chk) {
+float YOLOv8::intersection_over_union(const BBox& bbox_0, const BBox& bbox_1, int class_chk) {
     if (class_chk) {
         if (bbox_0.cls_id != bbox_1.cls_id)
             return 0.0;
@@ -40,41 +48,38 @@ float YOLOv8::intersection_over_union(BBox& bbox_0, BBox& bbox_1, int class_chk)
     return intersection_area / union_area;
 }
 
-void YOLOv8::non_maximum_suppression(std::queue<BBox>& bboxes, BBox& bbox, float iou) {
-    BBox bbox_0;
-    BBox bbox_to_be_stored;
-    int count = bboxes.size();
+void YOLOv8::non_maximum_suppression(std::queue<BBox>& bboxes,
+                                     const BBox& candidate,
+                                     float iou_thresh) {
+    int num_bbox = static_cast<int>(bboxes.size());
+    bool candidate_survives = true;
 
-    int exit_flag = 0;
-
-    // iterative over all bounding boxes
-    for (int i = 0; i < count; ++i) {
-        bbox_0 = bboxes.front();
+    for (int i = 0; i < num_bbox; ++i) {
+        BBox current = bboxes.front();
         bboxes.pop();
-        if (intersection_over_union(bbox_0, bbox, 0) > iou) {
-            // if two bounding boxes are highly overlapped, keep the one with higher score
-            if (bbox_0.conf > bbox.conf) {
-                bbox_to_be_stored = bbox_0;
-                exit_flag = 1;
-            } else {
-                bbox_to_be_stored = bbox;
+
+        float iou = intersection_over_union(current, candidate, 0);
+
+        if (iou > iou_thresh) {
+            
+            // Overlap: keep the one with higher confidence
+            if (current.conf >= candidate.conf) {
+                bboxes.push(current);
+                candidate_survives = false;
+                break;
             }
-            if (exit_flag) {
-                bboxes.push(bbox_to_be_stored);
-                return;
-            } else {
-                if (i == count - 1) {  // end of comparison
-                    bboxes.push(bbox_to_be_stored);
-                    return;
-                }
-            }
+
+            // else: drop current, keep candidate (do nothing here)
+
         } else {
-            // otherwise, put it back to list
-            bboxes.push(bbox_0);
+            // No overlap → keep current
+            bboxes.push(current);
         }
     }
-    // if not return from loop, we then add the given bounding box to list
-    bboxes.push(bbox);
+
+    if (candidate_survives) {
+        bboxes.push(candidate);
+    }
 }
 
 void YOLOv8::_draw_bbox(cv::Mat& image,
@@ -93,30 +98,38 @@ void YOLOv8::_draw_bbox(cv::Mat& image,
     int baseline;
     char text[64];
     /* bounding box rectangle line */
-    cv::rectangle(
-            image, cv::Point(x_min, y_min) /*top left*/, cv::Point(x_max, y_max) /*bottom right*/, box_color, bbox_thickness, cv::LINE_4);
+    cv::rectangle(image,
+                  cv::Point(x_min, y_min) /*top left*/,
+                  cv::Point(x_max, y_max) /*bottom right*/,
+                  box_color,
+                  bbox_thickness,
+                  cv::LINE_4);
 
     sprintf(text, "%s(%.f%%)", class_name, 100 * conf);
 
     text_size = cv::getTextSize(text, FONT, 2 * font_scale, bbox_thickness, &baseline);
 
     /* label background rectangle */
-    cv::rectangle(
-            image,
-            cv::Rect(x_min, mxutil_max(0, y_min - text_size.height), text_size.width * 0.5, text_size.height),  // top left, width, height
-            box_color,
-            cv::FILLED);
+    cv::rectangle(image,
+                  cv::Rect(x_min,
+                           mxutil_max(0, y_min - text_size.height),
+                           text_size.width * 0.5,
+                           text_size.height),  // top left, width, height
+                  box_color,
+                  cv::FILLED);
 
     /* label text */
-    cv::putText(
-            image,
-            text,
-            cv::Point(x_min, mxutil_max(0, y_min - text_size.height) == 0 ? text_size.height - 5 : y_min - 10 * font_scale),  // bottom left
-            FONT,
-            font_scale,
-            text_color,
-            font_thickness,
-            cv::LINE_AA);
+    cv::putText(image,
+                text,
+                cv::Point(x_min,
+                          mxutil_max(0, y_min - text_size.height) == 0
+                                  ? text_size.height - 5
+                                  : y_min - 10 * font_scale),  // bottom left
+                FONT,
+                font_scale,
+                text_color,
+                font_thickness,
+                cv::LINE_AA);
 }
 
 YOLOv8::YOLOv8(const YoloDetectConfig& config) {
@@ -203,7 +216,8 @@ cv::Mat YOLOv8::preprocess(const cv::Mat& image) {
 
     // Resize keeping aspect ratio
     cv::Mat resized;
-    cv::resize(image, resized, cv::Size(letterbox_width_, letterbox_height_), 0, 0, cv::INTER_LINEAR);
+    cv::resize(
+            image, resized, cv::Size(letterbox_width_, letterbox_height_), 0, 0, cv::INTER_LINEAR);
 
     // Apply letterbox padding (black border)
     cv::Mat padded;
@@ -258,9 +272,9 @@ void YOLOv8::draw_result(Result& result, cv::Mat& image) {
 }
 
 float YOLOv8::_conf_to_fastSigmoid_inputVal(float conf) {
-    // Converts a confidence value in [0,1] to the corresponding input for the fast-sigmoid function.
-    // The fast-sigmoid function: f(x) = x / (1 + |x|), which maps [-inf, +inf] -> [-1, 1].
-    // Steps:
+    // Converts a confidence value in [0,1] to the corresponding input for the fast-sigmoid
+    // function. The fast-sigmoid function: f(x) = x / (1 + |x|), which maps [-inf, +inf] -> [-1,
+    // 1]. Steps:
     //   1. Map conf [0,1] -> x [-1,1]
     //   2. Return x as input for fast-sigmoid
 
@@ -330,13 +344,15 @@ void YOLOv8::_get_detection(std::queue<BBox>& bboxes,
 
     float center_x, center_y, w, h;
 
-    center_x = (feature_value[2] - feature_value[0] + 2 * (0.5 + ((float)col))) * 0.5 * yolo_post_layers_[layer_id].ratio;
-    center_y = (feature_value[3] - feature_value[1] + 2 * (0.5 + ((float)row))) * 0.5 * yolo_post_layers_[layer_id].ratio;
+    center_x = (feature_value[2] - feature_value[0] + 2 * (0.5 + ((float)col))) * 0.5 *
+               yolo_post_layers_[layer_id].ratio;
+    center_y = (feature_value[3] - feature_value[1] + 2 * (0.5 + ((float)row))) * 0.5 *
+               yolo_post_layers_[layer_id].ratio;
     w = (feature_value[2] + feature_value[0]) * yolo_post_layers_[layer_id].ratio;
     h = (feature_value[3] + feature_value[1]) * yolo_post_layers_[layer_id].ratio;
 
-    // printf("[Layer%d] (%0.3f) %s\t: %.2f\t,%.2f\t,%.2f\t,%.2f\t]\n", layer_id, best_label_score, class_labels_[best_label], center_x,
-    // center_y, w, h);
+    // printf("[Layer%d] (%0.3f) %s\t: %.2f\t,%.2f\t,%.2f\t,%.2f\t]\n", layer_id, best_label_score,
+    // class_labels_[best_label], center_x, center_y, w, h);
 
     float min_x = mxutil_max(center_x - 0.5 * w, .0);
     float min_y = mxutil_max(center_y - 0.5 * h, .0);
@@ -367,8 +383,9 @@ void YOLOv8::postprocess(const std::vector<float*>& outputs, Result& result) {
 
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
-        const int confidence_floats_per_row = (layer.width * class_count_);                // 80 x 80
-        const int coordinate_floats_per_row = (layer.width * layer.coordinate_fmap_size);  // 80 x 64
+        const int confidence_floats_per_row = (layer.width * class_count_);  // 80 x 80
+        const int coordinate_floats_per_row =
+                (layer.width * layer.coordinate_fmap_size);  // 80 x 64
 
         const int conf_id = layer.confidence_ofmap_flow_id;
         const int coord_id = layer.coordinate_ofmap_flow_id;
@@ -387,7 +404,13 @@ void YOLOv8::postprocess(const std::vector<float*>& outputs, Result& result) {
             for (size_t col = 0; col < layer.width; col++) {
                 float* confidence_cell_buf = confidence_row_buf + col * class_count_;
                 float* coordinate_cell_buf = coordinate_row_buf + col * layer.coordinate_fmap_size;
-                _get_detection(result.bboxes, layer_id, confidence_cell_buf, coordinate_cell_buf, row, col, confs_tmp);
+                _get_detection(result.bboxes,
+                               layer_id,
+                               confidence_cell_buf,
+                               coordinate_cell_buf,
+                               row,
+                               col,
+                               confs_tmp);
             }
         }
     }

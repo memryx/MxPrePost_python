@@ -10,9 +10,11 @@
 #include <opencv2/opencv.hpp>    /* imshow */
 #include <queue>
 
-#define mxutil_prepost_sigmoid(_x_) (1.0 / (1.0 + expf(-1.0 * (_x_))))  // sigmoid: f(x) = 1 / (1 + e^(-x))
-#define mxutil_prepost_sigmoid_fast_sigmoid(_x_)                                                                                           \
-    ((_x_) / (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_))))  // fast-sigmoid: f(x) = x / (1 + abs(x))
+#define mxutil_prepost_sigmoid(_x_)                                                               \
+    (1.0 / (1.0 + expf(-1.0 * (_x_))))  // sigmoid: f(x) = 1 / (1 + e^(-x))
+#define mxutil_prepost_sigmoid_fast_sigmoid(_x_)                                                  \
+    ((_x_) /                                                                                      \
+     (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_))))  // fast-sigmoid: f(x) = x / (1 + abs(x))
 #define mxutil_max(_x_, _y_) (((_x_) > (_y_)) ? (_x_) : (_y_))
 #define mxutil_min(_x_, _y_) (((_x_) < (_y_)) ? (_x_) : (_y_))
 
@@ -44,7 +46,8 @@ class YOLOv8 : public MX::Proc::Processor {
     /**
      * @brief Post-process the output data from the YOLOv8 model.
      * @param output_buffers   Vector of pointers to the output buffers from the accelerator.
-     * @param result           Reference to the structure where the decoded bounding box results will be stored.
+     * @param result           Reference to the structure where the decoded bounding box results
+     * will be stored.
      */
     void postprocess(const std::vector<float*>& outputs, Result& result) override;
 
@@ -73,7 +76,7 @@ class YOLOv8 : public MX::Proc::Processor {
      *
      * @return overlap percentage
      */
-    float intersection_over_union(BBox& bbox_0, BBox& bbox_1, int class_chk);
+    float intersection_over_union(const BBox& bbox_0, const BBox& bbox_1, int class_chk);
 
     /**
      * @brief Post-process to calculate detection overlaps to combine the same
@@ -87,7 +90,7 @@ class YOLOv8 : public MX::Proc::Processor {
      *
      * @return none
      */
-    void non_maximum_suppression(std::queue<BBox>& bboxes, BBox& bbox, float iou);
+    void non_maximum_suppression(std::queue<BBox>& bboxes, const BBox& candidate, float iou);
 
   private:
     /** @brief Structure representing per-layer information of YOLOv8 output. */

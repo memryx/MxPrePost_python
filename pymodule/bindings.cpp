@@ -105,11 +105,6 @@ class Pipeline {
             mid_res.bboxes.pop();
 
             Box box;
-            // box.xywh = {
-            //     (bbox.x_min + bbox.x_max) / 2.0f,
-            //     (bbox.y_min + bbox.y_max) / 2.0f,
-            //     (bbox.x_max - bbox.x_min),
-            //     (bbox.y_max - bbox.y_min)};
             box.xywh = {bbox.x_min, bbox.y_min, (bbox.x_max - bbox.x_min), (bbox.y_max - bbox.y_min)};
             box.conf = bbox.conf;
             box.cls_id = bbox.cls_id;
