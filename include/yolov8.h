@@ -1,54 +1,55 @@
 #pragma once
 
-#include <queue>
-#include <opencv2/opencv.hpp>    /* imshow */
-#include <opencv2/imgproc.hpp>   /* cvtcolor */
-#include <opencv2/imgcodecs.hpp> /* imwrite */
-#include <mutex>
-#include <cstdlib>
-#include "processor.h"
 #include "config.h"
+#include "processor.h"
 
-#define mxutil_prepost_sigmoid(_x_) (1.0 / (1.0 + expf(-1.0 * (_x_))))                                   // sigmoid: f(x) = 1 / (1 + e^(-x))
-#define mxutil_prepost_sigmoid_fast_sigmoid(_x_) ((_x_) / (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_)))) // fast-sigmoid: f(x) = x / (1 + abs(x))
+#include <cstdlib>
+#include <mutex>
+#include <opencv2/imgcodecs.hpp> /* imwrite */
+#include <opencv2/imgproc.hpp>   /* cvtcolor */
+#include <opencv2/opencv.hpp>    /* imshow */
+#include <queue>
+
+#define mxutil_prepost_sigmoid(_x_) (1.0 / (1.0 + expf(-1.0 * (_x_))))  // sigmoid: f(x) = 1 / (1 + e^(-x))
+#define mxutil_prepost_sigmoid_fast_sigmoid(_x_)                                                                                           \
+    ((_x_) / (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_))))  // fast-sigmoid: f(x) = x / (1 + abs(x))
 #define mxutil_max(_x_, _y_) (((_x_) > (_y_)) ? (_x_) : (_y_))
 #define mxutil_min(_x_, _y_) (((_x_) < (_y_)) ? (_x_) : (_y_))
 
 using namespace MX::Proc;
 
 static const std::vector<cv::Scalar> COCO_TEXT_COLORS = {
-    {0, 0, 0},
-    {255, 255, 255},
-    {255, 255, 255},
-    {255, 255, 255},
-    {255, 215, 0},
+        {0, 0, 0},
+        {255, 255, 255},
+        {255, 255, 255},
+        {255, 255, 255},
+        {255, 215, 0},
 };
 
 static const std::vector<cv::Scalar> COCO_BOX_COLORS = {
-    {255, 255, 0, 0.6},
-    {26, 35, 126, 0.6},
-    {255, 50, 50, 0.6},
-    {0, 0, 0, 0.6},
-    {51, 51, 51, 0.6},
+        {255, 255, 0, 0.6},
+        {26, 35, 126, 0.6},
+        {255, 50, 50, 0.6},
+        {0, 0, 0, 0.6},
+        {51, 51, 51, 0.6},
 };
 
-class YOLOv8 : public MX::Proc::Processor
-{
-public:
+class YOLOv8 : public MX::Proc::Processor {
+  public:
     /** @brief Constructor for using official 80 classes COCO dataset. */
-    YOLOv8(const YoloDetectConfig &config);
+    YOLOv8(const YoloDetectConfig& config);
 
-    cv::Mat preprocess(const cv::Mat &image) override;
+    cv::Mat preprocess(const cv::Mat& image) override;
 
     /**
      * @brief Post-process the output data from the YOLOv8 model.
      * @param output_buffers   Vector of pointers to the output buffers from the accelerator.
      * @param result           Reference to the structure where the decoded bounding box results will be stored.
      */
-    void postprocess(const std::vector<float *> &outputs, YOLOv8Result &result) override;
+    void postprocess(const std::vector<float*>& outputs, YOLOv8Result& result) override;
 
     /** @brief Draw detected bounding boxes and labels on the provided image. */
-    void draw_result(YOLOv8Result &result, cv::Mat &image);
+    void draw_result(YOLOv8Result& result, cv::Mat& image);
 
     /** @brief Compute padding values for letterboxing from the display image. */
     void compute_padding(int disp_width, int disp_height);
@@ -72,7 +73,7 @@ public:
      *
      * @return overlap percentage
      */
-    float intersection_over_union(BBox &bbox_0, BBox &bbox_1, int class_chk);
+    float intersection_over_union(BBox& bbox_0, BBox& bbox_1, int class_chk);
 
     /**
      * @brief Post-process to calculate detection overlaps to combine the same
@@ -86,12 +87,11 @@ public:
      *
      * @return none
      */
-    void non_maximum_suppression(std::queue<BBox> &bboxes, BBox &bbox, float iou);
+    void non_maximum_suppression(std::queue<BBox>& bboxes, BBox& bbox, float iou);
 
-private:
+  private:
     /** @brief Structure representing per-layer information of YOLOv8 output. */
-    struct LayerParams
-    {
+    struct LayerParams {
         uint8_t coordinate_ofmap_flow_id;
         uint8_t confidence_ofmap_flow_id;
         size_t width;
@@ -101,15 +101,32 @@ private:
     };
 
     /** @brief Initialization method to set up YOLOv8 model parameters. */
-    void Init(size_t model_input_width, size_t model_input_height, size_t model_input_channel,
-              float confidence_thresh, float iou_thresh, size_t class_count, const char **class_labels);
+    void Init(size_t model_input_width,
+              size_t model_input_height,
+              size_t model_input_channel,
+              float confidence_thresh,
+              float iou_thresh,
+              size_t class_count,
+              const char** class_labels);
 
     /** @brief Helper methods for building detections from model output. */
-    void _get_detection(std::queue<BBox> &bounding_boxes, int layer_id, float *confidence_buffer,
-                        float *coordinate_buffer, int row, int col, float *confs_tmp);
+    void _get_detection(std::queue<BBox>& bounding_boxes,
+                        int layer_id,
+                        float* confidence_buffer,
+                        float* coordinate_buffer,
+                        int row,
+                        int col,
+                        float* confs_tmp);
 
-    void _draw_bbox(cv::Mat &image, int x_min, int y_min, int x_max, int y_max,
-                    cv::Scalar box_color, cv::Scalar text_color, const char *class_name, const float class_score);
+    void _draw_bbox(cv::Mat& image,
+                    int x_min,
+                    int y_min,
+                    int x_max,
+                    int y_max,
+                    cv::Scalar box_color,
+                    cv::Scalar text_color,
+                    const char* class_name,
+                    const float class_score);
 
     float _conf_to_fastSigmoid_inputVal(float conf);
 
@@ -117,11 +134,11 @@ private:
     struct LayerParams yolo_post_layers_[kNumPostProcessLayers];
 
     // Model-specific parameters.
-    const char **class_labels_;
+    const char** class_labels_;
     size_t class_count_;
-    size_t model_input_width_;   // Input width to accelerator, obtained by dfp.
-    size_t model_input_height_;  // Input height to accelerator, obtained by dfp.
-    size_t model_input_channel_; // Input channel to accelerator, obtained by dfp.
+    size_t model_input_width_;    // Input width to accelerator, obtained by dfp.
+    size_t model_input_height_;   // Input height to accelerator, obtained by dfp.
+    size_t model_input_channel_;  // Input channel to accelerator, obtained by dfp.
 
     // Colors for labels and bounding boxes.
     std::vector<cv::Scalar> class_label_colors_;
@@ -130,7 +147,7 @@ private:
     // Confidence and IOU thresholds.
     std::mutex confidence_mutex_;
     float confidence_thresh_;
-    float confidence_thresh_fastSigmoid_; // Converted confidence threshold for fast-sigmoid
+    float confidence_thresh_fastSigmoid_;  // Converted confidence threshold for fast-sigmoid
     float iou_thresh_;
 
     // Letterbox ratio and padding.
