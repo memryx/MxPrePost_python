@@ -6,11 +6,15 @@
 #include <opencv2/imgcodecs.hpp> /* imwrite */
 #include <mutex>
 #include <cstdlib>
+#include "processor.h"
+#include "config.h"
 
 #define mxutil_prepost_sigmoid(_x_) (1.0 / (1.0 + expf(-1.0 * (_x_))))                                   // sigmoid: f(x) = 1 / (1 + e^(-x))
 #define mxutil_prepost_sigmoid_fast_sigmoid(_x_) ((_x_) / (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_)))) // fast-sigmoid: f(x) = x / (1 + abs(x))
 #define mxutil_max(_x_, _y_) (((_x_) > (_y_)) ? (_x_) : (_y_))
 #define mxutil_min(_x_, _y_) (((_x_) < (_y_)) ? (_x_) : (_y_))
+
+using namespace MX::Proc;
 
 static const std::vector<cv::Scalar> COCO_TEXT_COLORS = {
     {0, 0, 0},
@@ -28,45 +32,20 @@ static const std::vector<cv::Scalar> COCO_BOX_COLORS = {
     {51, 51, 51, 0.6},
 };
 
-struct BBox
-{
-    int class_index;   // class index with maximum confident
-    float class_score; // class confident(score)
-    float x_min;       // global top-left x relates to model's input feature map size width
-    float y_min;       // global top-left y relates to model's input feature map size height
-    float x_max;       // global bottom-right x relates to model's input feature map size width
-    float y_max;       // global bottom-right y relates to model's input feature map size height
-
-    // Default constructor
-    BBox() : class_index(-1), class_score(-1), x_min(-1), y_min(-1), x_max(-1), y_max(-1) {}
-    // Parameterized constructor
-    BBox(int _class_index, float _class_socre, float _x_min, float _y_min, float _x_max, float _y_max)
-        : class_index(_class_index), class_score(_class_socre), x_min(_x_min), y_min(_y_min), x_max(_x_max), y_max(_y_max) {}
-};
-
-struct YOLOv8Result
-{
-    std::queue<BBox> bboxes;
-    std::queue<std::vector<std::pair<float, float>>> keypoints;
-    std::queue<std::vector<float>> mask_features;
-    std::queue<cv::Rect> final_rois;
-    std::queue<cv::Mat> final_masks;
-};
-
-class YOLOv8
+class YOLOv8 : public MX::Proc::Processor
 {
 public:
     /** @brief Constructor for using official 80 classes COCO dataset. */
-    YOLOv8();
+    YOLOv8(const YoloDetectConfig &config);
 
-    cv::Mat preprocess(const cv::Mat& image);
+    cv::Mat preprocess(const cv::Mat &image) override;
 
     /**
      * @brief Post-process the output data from the YOLOv8 model.
      * @param output_buffers   Vector of pointers to the output buffers from the accelerator.
      * @param result           Reference to the structure where the decoded bounding box results will be stored.
      */
-    void postprocess(std::vector<float *> output_buffers, YOLOv8Result &result);
+    void postprocess(const std::vector<float *> &outputs, YOLOv8Result &result) override;
 
     /** @brief Draw detected bounding boxes and labels on the provided image. */
     void draw_result(YOLOv8Result &result, cv::Mat &image);
@@ -128,12 +107,12 @@ private:
     /** @brief Helper methods for building detections from model output. */
     void _get_detection(std::queue<BBox> &bounding_boxes, int layer_id, float *confidence_buffer,
                         float *coordinate_buffer, int row, int col, float *confs_tmp);
-    
+
     void _draw_bbox(cv::Mat &image, int x_min, int y_min, int x_max, int y_max,
                     cv::Scalar box_color, cv::Scalar text_color, const char *class_name, const float class_score);
-    
+
     float _conf_to_fastSigmoid_inputVal(float conf);
-    
+
     static constexpr size_t kNumPostProcessLayers = 3;
     struct LayerParams yolo_post_layers_[kNumPostProcessLayers];
 

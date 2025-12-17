@@ -1,7 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/functional.h> // for std::function
 #include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>        // for py::bytes
 #include <pybind11/stl.h>            // for std::string
 #include <pybind11/stl/filesystem.h> // for std::filesystem::path
@@ -12,6 +11,8 @@
 #include <numpy/ndarraytypes.h>
 #include <opencv2/opencv.hpp>
 #include "yolov8.h"
+#include "processor.h"
+#include "config.h"
 
 #include <vector>
 #include <iostream>
@@ -86,25 +87,25 @@ py::array mat_to_numpy(const cv::Mat &mat)
 class Pipeline
 {
 public:
-    Pipeline(int ori_width, int ori_height, float conf_thres = 0.3, float iou_thres = 0.4)
+    Pipeline(const std::string &task,
+             int ori_width,
+             int ori_height,
+             float conf_thres = 0.3,
+             float iou_thres = 0.4)
     {
-        yolov8_ = new YOLOv8();
-
-        // setup
-        yolov8_->compute_padding(ori_width, ori_height);
-        yolov8_->set_confidence_threshold(conf_thres);
-        yolov8_->set_iou_threshold(iou_thres);
+        YoloDetectConfig config{ori_width, ori_height, conf_thres, iou_thres};
+        processor_ = Processor::create(task, config);
     }
 
     ~Pipeline()
     {
-        delete yolov8_;
+        delete processor_;
     }
 
     py::array preprocess(const py::array &arr)
     {
         cv::Mat img = numpy_to_mat(arr);
-        cv::Mat padded = yolov8_->preprocess(img);
+        cv::Mat padded = processor_->preprocess(img);
         return mat_to_numpy(padded);
     }
 
@@ -122,7 +123,7 @@ public:
         // call real postrocess
         // TODO: remove YOLOv8Result intermediate structure
         YOLOv8Result mid_res;
-        yolov8_->postprocess(ofmap_ptrs, mid_res);
+        processor_->postprocess(ofmap_ptrs, mid_res);
 
         // construct final results
         std::vector<Box> results;
@@ -144,7 +145,7 @@ public:
                 (bbox.y_max - bbox.y_min)};
             box.conf = bbox.class_score;
             box.cls_id = bbox.class_index;
-            
+
             // TODO: map class_index to class_name
             box.cls_name = "people";
 
@@ -155,7 +156,7 @@ public:
     }
 
 private:
-    YOLOv8 *yolov8_;
+    Processor *processor_;
 };
 
 // helper to safely call import_array()
@@ -180,7 +181,8 @@ PYBIND11_MODULE(mxproc, m)
 
     // Pipeline class
     py::class_<Pipeline>(m, "Pipeline")
-        .def(py::init<int, int, float, float>(),
+        .def(py::init<std::string, int, int, float, float>(),
+             py::arg("task"),
              py::arg("ori_width"),
              py::arg("ori_height"),
              py::arg("conf_thres") = 0.3f,

@@ -99,11 +99,12 @@ class Yolo8sMxa:
 
             # Initialize the YOLOv8 model
             # self.model[i] = YoloModel(stream_img_size=(self.dims[i][1], self.dims[i][0], 3), model_type=self.model_type)
-            self.post = Post(model_type="numpy")
+            # self.post = Post(model_type="numpy")
 
         # init MXPipe pipeline
-        self.pipe = mxproc.Pipeline(int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                                    int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        self.pipe = mxproc.Pipeline(task="yolov8_detect",
+                                    ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                                    ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         
         # Start display thread
         if self.show:

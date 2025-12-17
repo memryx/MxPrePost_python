@@ -188,18 +188,27 @@ void YOLOv8::_draw_bbox(cv::Mat &image, int x_min, int y_min, int x_max,
                 FONT, font_scale, text_color, font_thickness, cv::LINE_AA);
 }
 
-YOLOv8::YOLOv8()
+YOLOv8::YOLOv8(const YoloDetectConfig &config)
 {
     model_input_width_ = 640;
     model_input_height_ = 640;
     model_input_channel_ = 3;
-    confidence_thresh_ = 0.3f;
-    confidence_thresh_fastSigmoid_ = _conf_to_fastSigmoid_inputVal(confidence_thresh_);
-    iou_thresh_ = 0.45f;
     class_labels_ = COCO_NAMES;
     class_count_ = COCO_CLASS_NUMBER;
     int color_size = COCO_TEXT_COLORS.size();
     valid_input_ = false;
+    
+    // init settings from config
+    confidence_thresh_ = config.conf_thres;
+    iou_thresh_ = config.iou_thres;
+    compute_padding(config.ori_width, config.ori_height);
+    
+    // ========================
+
+    // confidence_thresh_ = 0.3f;
+    confidence_thresh_fastSigmoid_ = _conf_to_fastSigmoid_inputVal(confidence_thresh_);
+
+    // iou_thresh_ = 0.45f;
 
     // set label and bbox color
     for (size_t i = 0; i < class_count_; i++)
@@ -417,16 +426,16 @@ void YOLOv8::_get_detection(std::queue<BBox> &bboxes, int layer_id, float *confi
     non_maximum_suppression(bboxes, bbox, iou_thresh_);
 }
 
-void YOLOv8::postprocess(std::vector<float *> output_buffers, YOLOv8Result &result)
+void YOLOv8::postprocess(const std::vector<float *> &outputs, YOLOv8Result &result)
 {
     if (!valid_input_)
     {
         throw std::runtime_error("Make sure to call ComputePadding() before further processing.");
     }
 
-    if (output_buffers.empty())
+    if (outputs.empty())
     {
-        throw std::invalid_argument("output_buffers cannot be null.");
+        throw std::invalid_argument("outputs cannot be null.");
     }
 
     float *confs_tmp = new float[class_count_];
@@ -440,8 +449,8 @@ void YOLOv8::postprocess(std::vector<float *> output_buffers, YOLOv8Result &resu
         const int conf_id = layer.confidence_ofmap_flow_id;
         const int coord_id = layer.coordinate_ofmap_flow_id;
 
-        float *confidence_base = output_buffers[conf_id];
-        float *coordinate_base = output_buffers[coord_id];
+        float *confidence_base = outputs.at(conf_id);
+        float *coordinate_base = outputs.at(coord_id);
 
         if (!confidence_base || !coordinate_base)
         {
