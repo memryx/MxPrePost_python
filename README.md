@@ -15,8 +15,8 @@ from memryx import Prepost # import from memryx runtime package
 
 class App:
     def __init__(self):
-        # Initialize for a specific task (e.g., detection)
-        self.prepost = Prepost(task="detection")
+        # Initialize for a specific task
+        self.prepost = Prepost(task="yolov8_detect")
 
 
     def in_callback(self):
@@ -48,7 +48,7 @@ prepost = Prepost(
     imgsz=(640, 640),           # model input size (width, height)
     valid_classes=["person", "ball"],
     nms=True,                   # enable/disable NMS
-    task="detection",           # detection | segmentation | pose
+    task="yolov8_detect",       # yolov8_detect | yolov8_seg | yolov8_pose ...
 )
 ```
 
