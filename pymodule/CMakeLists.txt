@@ -1,6 +1,6 @@
 ## original cmake
 cmake_minimum_required(VERSION 3.14)
-project(mxproc)
+project(mxpipe)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -68,8 +68,8 @@ endif()
 # You can also use find_package(pybind11 REQUIRED) if installed system-wide
 add_subdirectory(pybind11)  # Clone from https://github.com/pybind/pybind11
 
-# This will automatically name the output module "mxproc.<python_abi_tag>.so"
-pybind11_add_module(mxproc bindings.cpp)
+# This will automatically name the output module "mxpipe.<python_abi_tag>.so"
+pybind11_add_module(mxpipe bindings.cpp)
 
 # TODO: remove this
 set(BASIC_DEBUG_FLAGS "-Wall -Wextra -fPIC -O0 -g -fopenmp -fno-omit-frame-pointer -Wno-unused-variable")
@@ -87,11 +87,11 @@ execute_process(
 find_package(OpenCV REQUIRED)
 
 # Include directories
-target_include_directories(mxproc PRIVATE
+target_include_directories(mxpipe PRIVATE
                            ${CMAKE_SOURCE_DIR}
                            ${PYTHON_NUMPY_INCLUDE_DIR}
                            ${OpenCV_INCLUDE_DIRS}
                            /usr/include/
                            ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
-target_link_libraries(mxproc PRIVATE ${OpenCV_LIBS} ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmxproc.so)
+target_link_libraries(mxpipe PRIVATE ${OpenCV_LIBS} ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmxpipe.so)

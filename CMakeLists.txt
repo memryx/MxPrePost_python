@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(mxproc)
+project(mxpipe)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -17,10 +17,10 @@ file(GLOB local_src src/*.cpp)
 
 find_package(OpenCV REQUIRED)
 
-add_library(mxproc SHARED ${local_src})
+add_library(mxpipe SHARED ${local_src})
 
-target_link_libraries(mxproc ${OpenCV_LIBS})
+target_link_libraries(mxpipe ${OpenCV_LIBS})
 
-target_include_directories(mxproc
+target_include_directories(mxpipe
     PRIVATE ${OpenCV_INCLUDE_DIRS} include/
 )

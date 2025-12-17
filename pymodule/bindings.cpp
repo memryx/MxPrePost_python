@@ -7,23 +7,14 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/ndarraytypes.h>
 
-#include "config.h"
 #include "processor.h"
-#include "yolov8.h"
 
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <vector>
 
 namespace py = pybind11;
-
-struct Box {
-    std::array<float, 4> ltwh;  // (left, top, width, height)
-    std::array<float, 4> xywh;  // (x_center, y_center, w, h)
-    float conf;                 // confidence conf
-    int cls_id;                 // class index
-    std::string cls_name;
-};
+using namespace MX::Proc;
 
 cv::Mat numpy_to_mat(const py::array& array) {
     py::array arr = py::array::ensure(array, py::array::c_style);
@@ -47,14 +38,15 @@ cv::Mat numpy_to_mat(const py::array& array) {
     else
         throw std::runtime_error("Unsupported dtype");
 
+    // zero-copy conversion
     return cv::Mat(rows, cols, type, info.ptr);
 }
 
-/* zero copy */
 py::array mat_to_numpy(const cv::Mat& mat) {
     std::vector<size_t> shape = {(size_t)mat.rows, (size_t)mat.cols, (size_t)mat.channels()};
 
-    std::vector<size_t> strides = {(size_t)mat.step, (size_t)mat.elemSize(), (size_t)mat.elemSize1()};
+    std::vector<size_t> strides = {
+            (size_t)mat.step, (size_t)mat.elemSize(), (size_t)mat.elemSize1()};
 
     std::string format;
     if (mat.depth() == CV_8U)
@@ -64,12 +56,19 @@ py::array mat_to_numpy(const cv::Mat& mat) {
     else
         throw std::runtime_error("Unsupported Mat depth");
 
+    // zero-copy conversion
     return py::array(py::buffer_info(mat.data, mat.elemSize1(), format, 3, shape, strides));
 }
 
 class Pipeline {
   public:
-    Pipeline(const std::string& task, int ori_width, int ori_height, float conf_thres = 0.3, float iou_thres = 0.4) {
+    Pipeline(const std::string& task,
+             int ori_width,
+             int ori_height,
+             float conf_thres = 0.3,
+             float iou_thres = 0.4) {
+
+        // TODO: factory method for config
         YoloDetectConfig config{ori_width, ori_height, conf_thres, iou_thres};
         processor_ = Processor::create(task, config);
     }
@@ -79,47 +78,40 @@ class Pipeline {
     }
 
     py::array preprocess(const py::array& arr) {
+
+        // convert numpy to cv::Mat
         cv::Mat img = numpy_to_mat(arr);
+
+        // call preprocess
         cv::Mat padded = processor_->preprocess(img);
+
+        // convert back to numpy
         return mat_to_numpy(padded);
     }
 
-    std::vector<Box> postprocess(const std::vector<py::array>& ofmaps) {
-        // TODO: preallocate ofmap_ptrs
-        std::vector<float*> ofmap_ptrs;
-        for (const auto& ofmap : ofmaps) {
-            py::buffer_info info = ofmap.request();
+    MX::Proc::Result postprocess(const std::vector<py::array>& ofmaps) {
+
+        // init ofmap ptrs
+        if (ofmap_ptrs_.empty()) {
+            ofmap_ptrs_.resize(ofmaps.size());
+        }
+
+        // assign ofmap ptrs
+        for (int i = 0; i < static_cast<int>(ofmaps.size()); ++i) {
+            py::buffer_info info = ofmaps[i].request();
             float* ptr = (float*)info.ptr;
-            ofmap_ptrs.push_back(ptr);
+            ofmap_ptrs_[i] = ptr;
         }
 
-        // call real postrocess
-        // TODO: remove Result intermediate structure
-        Result mid_res;
-        processor_->postprocess(ofmap_ptrs, mid_res);
-
-        // construct final results
-        std::vector<Box> results;
-        while (mid_res.bboxes.empty() == false) {
-            BBox bbox = mid_res.bboxes.front();
-            mid_res.bboxes.pop();
-
-            Box box;
-            box.xywh = {bbox.x_min, bbox.y_min, (bbox.x_max - bbox.x_min), (bbox.y_max - bbox.y_min)};
-            box.conf = bbox.conf;
-            box.cls_id = bbox.cls_id;
-
-            // TODO: map class_index to class_name
-            box.cls_name = "people";
-
-            results.push_back(box);
-        }
-
-        return results;
+        // call postrocess
+        MX::Proc::Result result;
+        processor_->postprocess(ofmap_ptrs_, result);
+        return result;
     }
 
   private:
     Processor* processor_;
+    std::vector<float*> ofmap_ptrs_;
 };
 
 // helper to safely call import_array()
@@ -128,17 +120,24 @@ static int numpy_import_array_wrapper() {
     return 0;
 }
 
-PYBIND11_MODULE(mxproc, m) {
+PYBIND11_MODULE(mxpipe, m) {
     // helper to safely call import_array(), otherwise got segfault when parsing numpy arrays
     numpy_import_array_wrapper();
 
-    // Box class
-    py::class_<Box>(m, "Box")
+    // Result class
+    py::class_<MX::Proc::Result>(m, "Result")
             .def(py::init<>())
-            .def_readwrite("xywh", &Box::xywh)
-            .def_readwrite("conf", &Box::conf)
-            .def_readwrite("cls_id", &Box::cls_id)
-            .def_readwrite("cls_name", &Box::cls_name);
+            .def_readwrite("bboxes", &Result::bboxes)
+            .def_readwrite("masks", &Result::masks)
+            .def_readwrite("keypoints", &Result::keypoints);
+
+    // Box class
+    py::class_<MX::Proc::BBox>(m, "Box")
+            .def(py::init<>())
+            .def_readwrite("xywh", &BBox::xywh)
+            .def_readwrite("conf", &BBox::conf)
+            .def_readwrite("cls_id", &BBox::cls_id)
+            .def_readwrite("cls_name", &BBox::cls_name);
 
     // Pipeline class
     py::class_<Pipeline>(m, "Pipeline")

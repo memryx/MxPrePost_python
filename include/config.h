@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <iostream>
+#include <list>
 #include <queue>
 #include <vector>
 
@@ -31,8 +32,9 @@ namespace MX {
                  float conf_,
                  int cls_id_,
                  const std::string& cls_name_ = "") :
-                x_min(x_min_), y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_),
-                cls_id(cls_id_), cls_name(cls_name_) {
+                x_min(x_min_),
+                y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_), cls_id(cls_id_),
+                cls_name(cls_name_) {
                 update_xyxy();
                 update_xywh();
             }
@@ -54,9 +56,9 @@ namespace MX {
         };
 
         struct Result {
-            std::queue<BBox> bboxes;
-            std::queue<std::vector<std::pair<float, float>>> keypoints;
-            std::queue<std::vector<float>> masks;
+            std::list<BBox> bboxes;
+            std::list<std::vector<float>> masks;
+            std::vector<std::vector<std::pair<float, float>>> keypoints;
         };
 
         struct YoloDetectConfig {
