@@ -6,10 +6,10 @@
 #include <string>
 
 namespace MX {
-    namespace Proc {
-        class Processor {
+    namespace Pipe {
+        class Pipeline {
           public:
-            virtual ~Processor() = default;
+            virtual ~Pipeline() = default;
 
             // Pure virtual methods to be implemented by derived classes
             virtual cv::Mat preprocess(const cv::Mat& input) = 0;
@@ -17,7 +17,7 @@ namespace MX {
             virtual void draw(cv::Mat& image, const Result& result) = 0;
 
             // Factory method
-            static Processor* create(const std::string& task, const YoloDetectConfig& config);
+            static Pipeline* create(const std::string& task, const YoloDetectConfig& config);
         };
 
     }

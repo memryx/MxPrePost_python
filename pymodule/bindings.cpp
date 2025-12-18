@@ -7,14 +7,14 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/ndarraytypes.h>
 
-#include "processor.h"
+#include "pipeline.h"
 
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <vector>
 
 namespace py = pybind11;
-using namespace MX::Proc;
+using namespace MX::Pipe;
 
 cv::Mat numpy_to_mat(const py::array& array) {
     py::array arr = py::array::ensure(array, py::array::c_style);
@@ -60,21 +60,21 @@ py::array mat_to_numpy(const cv::Mat& mat) {
     return py::array(py::buffer_info(mat.data, mat.elemSize1(), format, 3, shape, strides));
 }
 
-class Pipeline {
+class BindPipeline {
   public:
-    Pipeline(const std::string& task,
-             int ori_width,
-             int ori_height,
-             float conf_thres = 0.3,
-             float iou_thres = 0.4) {
+    BindPipeline(const std::string& task,
+                 int ori_width,
+                 int ori_height,
+                 float conf_thres = 0.3,
+                 float iou_thres = 0.4) {
 
         // TODO: factory method for config
         YoloDetectConfig config{ori_width, ori_height, conf_thres, iou_thres};
-        processor_ = Processor::create(task, config);
+        pipeline_ = Pipeline::create(task, config);
     }
 
-    ~Pipeline() {
-        delete processor_;
+    ~BindPipeline() {
+        delete pipeline_;
     }
 
     py::array preprocess(const py::array& arr) {
@@ -83,13 +83,13 @@ class Pipeline {
         cv::Mat img = numpy_to_mat(arr);
 
         // call preprocess
-        cv::Mat padded = processor_->preprocess(img);
+        cv::Mat padded = pipeline_->preprocess(img);
 
         // convert back to numpy
         return mat_to_numpy(padded);
     }
 
-    MX::Proc::Result postprocess(const std::vector<py::array>& ofmaps) {
+    MX::Pipe::Result postprocess(const std::vector<py::array>& ofmaps) {
 
         // init ofmap ptrs
         if (ofmap_ptrs_.empty()) {
@@ -104,23 +104,23 @@ class Pipeline {
         }
 
         // call postrocess
-        MX::Proc::Result result;
-        processor_->postprocess(ofmap_ptrs_, result);
+        MX::Pipe::Result result;
+        pipeline_->postprocess(ofmap_ptrs_, result);
         return result;
     }
 
-    py::array draw(py::array& arr, const MX::Proc::Result& result) {
+    py::array draw(py::array& arr, const MX::Pipe::Result& result) {
         // convert numpy to cv::Mat
         cv::Mat img = numpy_to_mat(arr);
 
         // call draw
-        processor_->draw(img, result);
+        pipeline_->draw(img, result);
 
         return mat_to_numpy(img);
     }
 
   private:
-    Processor* processor_;
+    Pipeline* pipeline_;
     std::vector<float*> ofmap_ptrs_;
 };
 
@@ -135,14 +135,14 @@ PYBIND11_MODULE(mxpipe, m) {
     numpy_import_array_wrapper();
 
     // Result class
-    py::class_<MX::Proc::Result>(m, "Result")
+    py::class_<MX::Pipe::Result>(m, "Result")
             .def(py::init<>())
             .def_readwrite("bboxes", &Result::bboxes)
             .def_readwrite("masks", &Result::masks)
             .def_readwrite("keypoints", &Result::keypoints);
 
     // Box class
-    py::class_<MX::Proc::BBox>(m, "Box")
+    py::class_<MX::Pipe::BBox>(m, "Box")
             .def(py::init<>())
             .def_readwrite("xywh", &BBox::xywh)
             .def_readwrite("conf", &BBox::conf)
@@ -150,14 +150,14 @@ PYBIND11_MODULE(mxpipe, m) {
             .def_readwrite("cls_name", &BBox::cls_name);
 
     // Pipeline class
-    py::class_<Pipeline>(m, "Pipeline")
+    py::class_<BindPipeline>(m, "Pipeline")
             .def(py::init<std::string, int, int, float, float>(),
                  py::arg("task"),
                  py::arg("ori_width"),
                  py::arg("ori_height"),
                  py::arg("conf_thres") = 0.3f,
                  py::arg("iou_thres") = 0.4f)
-            .def("draw", &Pipeline::draw)
-            .def("preprocess", &Pipeline::preprocess)
-            .def("postprocess", &Pipeline::postprocess);
+            .def("draw", &BindPipeline::draw)
+            .def("preprocess", &BindPipeline::preprocess)
+            .def("postprocess", &BindPipeline::postprocess);
 }

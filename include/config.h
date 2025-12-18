@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace MX {
-    namespace Proc {
+    namespace Pipe {
         struct BBox {
             float x_min;
             float y_min;

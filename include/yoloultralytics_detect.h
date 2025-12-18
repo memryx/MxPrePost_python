@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config.h"
-#include "processor.h"
+#include "pipeline.h"
 
 #include <cstdlib>
 #include <mutex>
@@ -18,9 +18,9 @@
 #define mxutil_max(_x_, _y_) (((_x_) > (_y_)) ? (_x_) : (_y_))
 #define mxutil_min(_x_, _y_) (((_x_) < (_y_)) ? (_x_) : (_y_))
 
-using namespace MX::Proc;
+using namespace MX::Pipe;
 
-class YoloUltralyticsDetect : public MX::Proc::Processor {
+class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
   public:
     /** @brief Constructor for using official 80 classes COCO dataset. */
     YoloUltralyticsDetect(const YoloDetectConfig& config);

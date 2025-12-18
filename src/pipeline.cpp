@@ -1,10 +1,10 @@
-#include "processor.h"
+#include "pipeline.h"
 
 #include "yoloultralytics_detect.h"
 
-using namespace MX::Proc;
+using namespace MX::Pipe;
 
-Processor* Processor::create(const std::string& task, const YoloDetectConfig& config) {
+Pipeline* Pipeline::create(const std::string& task, const YoloDetectConfig& config) {
     if (task == "yolov8_detect") {
         return new YoloUltralyticsDetect(config);
     } else if (task == "yolov8_seg") {

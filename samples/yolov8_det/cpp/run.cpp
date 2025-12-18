@@ -1,5 +1,5 @@
 #include <memx/mxutils/gui_view.h>
-#include <processor.h>
+#include <pipeline.h>
 #include <signal.h>
 
 #include "memx/accl/MxAccl.h"
@@ -12,7 +12,7 @@
 #include <thread>
 
 namespace fs = std::filesystem;
-using namespace MX::Proc;
+using namespace MX::Pipe;
 
 std::atomic_bool runflag;  // Atomic flag to control run state
 
@@ -113,7 +113,7 @@ void initVcap(cv::VideoCapture& vcap, const std::string& video_src, bool& src_is
 
 class YoloApp {
   private:
-    MX::Proc::Processor* processor_;
+    MX::Pipe::Pipeline* pipeline_;
 
     // Application Variables
     std::deque<cv::Mat> frames_queue;  // Queue for frames
@@ -159,7 +159,7 @@ class YoloApp {
                 }
 
                 // Preprocess
-                cv::Mat pre = processor_->preprocess(rgbImage);
+                cv::Mat pre = pipeline_->preprocess(rgbImage);
                 dst[0]->set_data((float*)pre.data);
                 return true;
             }
@@ -186,9 +186,9 @@ class YoloApp {
         }
 
         // Postprocess
-        MX::Proc::Result result;
-        processor_->postprocess(ofmaps, result);
-        processor_->draw(displayImage, result);
+        MX::Pipe::Result result;
+        pipeline_->postprocess(ofmaps, result);
+        pipeline_->draw(displayImage, result);
 
         // Display the updated image in the GUI
         gui_->screens[0]->SetDisplayFrame(streamLabel, displayImage, fps_number);
@@ -227,7 +227,7 @@ class YoloApp {
         YoloDetectConfig config;
         config.ori_width = (int)vcap.get(cv::CAP_PROP_FRAME_WIDTH);
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
-        processor_ = MX::Proc::Processor::create("yolov8_detect", config);
+        pipeline_ = MX::Pipe::Pipeline::create("yolov8_detect", config);
 
         // Get model info and allocate output buffer
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);
@@ -255,7 +255,7 @@ class YoloApp {
         for (int i = 0; i < ofmaps.size(); i++) {
             delete[] ofmaps[i];  // Clean up memory
         }
-        delete processor_;
+        delete pipeline_;
     }
 };
 
