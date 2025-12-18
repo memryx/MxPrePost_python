@@ -238,7 +238,7 @@ cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
     return padded;  // shape: (640, 640, 3), range [0,1]
 }
 
-void YoloUltralyticsDetect::draw(Result& result, cv::Mat& image) {
+void YoloUltralyticsDetect::draw(cv::Mat& image, const Result& result) {
     for (const BBox& bbox : result.bboxes) {
         _draw_bbox(image, bbox);
     }

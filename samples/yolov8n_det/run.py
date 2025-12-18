@@ -12,7 +12,6 @@ A script to show how to use the MultiStreamAcclerator API to perform a real-time
 on MX3 using YOLOv8 model.
 """
 
-###################################################################################################
 
 # Imports
 import time
@@ -22,30 +21,24 @@ import cv2
 from queue import Queue, Full
 import queue
 from threading import Thread
-# from memryx import MultiStreamAsyncAccl
-# from yolov8 import YoloV8 as YoloModel
-from memryx_posts import Post
 from collections import defaultdict
 import sys
 import mxpipe
 
 video_stream_1 = '/home/mixtile/memryx/media/people_1.mp4'
 video_stream_2 = '/home/mixtile/memryx/media/dataset_2.mp4'
-#video_stream_2 = 'rtsp://192.168.1.191:8554/video2'
 dfp = '/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite.dfp'
 post_onnx_path = '/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite_post.tflite'
 
 
 FPS_LOG_INTERVAL = 30  # print out FPS every X frames
 
-###################################################################################################
 
 class Yolo8sMxa:
     """
     A demo app to run YOLOv8 on the MemryX MXA.
     """
 
-###################################################################################################
     def __init__(self, video_paths, model_type, show=True):
         """
         Initialization function.
@@ -60,7 +53,7 @@ class Yolo8sMxa:
         self.streams_idx = [True] * self.num_streams
         self.stream_window = [False] * self.num_streams
         self.cap_queue = {i: Queue(maxsize=50) for i in range(self.num_streams)}
-        self.bbox_queue = {i: Queue(maxsize=50) for i in range(self.num_streams)}
+        self.result_queue = {i: Queue(maxsize=50) for i in range(self.num_streams)}
         self.outputs = {i: [] for i in range(self.num_streams)}
         self.dims = {}
         self.color_wheel = {}
@@ -110,7 +103,6 @@ class Yolo8sMxa:
         if self.show:
             self.display_thread = Thread(target=self.display)
 
-###################################################################################################
     def run(self):
         """
         Start inference on the MXA using multiple streams.
@@ -148,7 +140,6 @@ class Yolo8sMxa:
         if self.show:
             self.display_thread.join()
 
-###################################################################################################
     def in_callback(self, stream_idx):
         """
         Captures a frame for the video device and pre-processes it.
@@ -177,7 +168,6 @@ class Yolo8sMxa:
             return frame
 
 
-###################################################################################################
     def out_callback(self, mxa_output, stream_idx):
         """
         Post-process the output from MXA.
@@ -188,7 +178,7 @@ class Yolo8sMxa:
         
         # Queue detection results for display
         if self.show:
-            self.bbox_queue[stream_idx].put(result.bboxes)
+            self.result_queue[stream_idx].put(result)
 
         # Calculate FPS
         self.update_fps(stream_idx)
@@ -204,33 +194,20 @@ class Yolo8sMxa:
                 try:
                     # Python blocky queue, no need to check if not queue.empty()
                     frame = self.cap_queue[stream_idx].get(timeout=2)
-                    dets = self.bbox_queue[stream_idx].get(timeout=2)
+                    result = self.result_queue[stream_idx].get(timeout=2)
                 except queue.Empty:
                     break 
 
-                self.cap_queue[stream_idx].task_done()
-                self.bbox_queue[stream_idx].task_done()
-
-                # Draw detection boxes
-                for d in dets:
-                    x_center, y_center, w, h = d.xywh
-                    x1, y1, w, h = int(x_center - w / 2), int(y_center - h / 2), int(w), int(h)
-
-                    color = tuple(int(c) for c in self.color_wheel[stream_idx][d.cls_id % 20])
-
-                    # Draw bounding boxes
-                    frame = cv2.rectangle(frame, (x1, y1), (x1 + w, y1 + h), color, 2)
-
-                    # Add class label
-                    frame = cv2.putText(frame, d.cls_name, (x1 + 2, y1 - 5),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
+                # Draw detections on the frame
+                display_img = self.pipe.draw(frame, result)
+                
                 # Add FPS to frame
-                fps_text = f"{self.fps_number[stream_idx]:.2f}"
-                frame = cv2.putText(frame, fps_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-
+                fps_text = f"FPS: {self.fps_number[stream_idx]:.2f}"
+                display_img = cv2.putText(display_img, fps_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+                
+                # show
                 window_name = f"Stream {stream_idx} - YOLOv8"
-                cv2.imshow(window_name, frame)
+                cv2.imshow(window_name, display_img)
 
             # Exit if 'q' is pressed
             if cv2.waitKey(1) == ord('q'):
@@ -304,7 +281,6 @@ def main(args):
         print(f'Final Avg FPS for Stream {i}: {yolo8s_inf.get_avg_fps(i):.2f}')
 
 
-###################################################################################################
 
 if __name__ == "__main__":
     # Argument parser
@@ -333,5 +309,3 @@ if __name__ == "__main__":
 
     # Call the main function
     main(args)
-
-# eof

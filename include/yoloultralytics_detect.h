@@ -27,7 +27,7 @@ class YoloUltralyticsDetect : public MX::Proc::Processor {
 
     cv::Mat preprocess(const cv::Mat& image) override;
     void postprocess(const std::vector<float*>& outputs, Result& result) override;
-    void draw(Result& result, cv::Mat& image);
+    void draw(cv::Mat& image, const Result& result) override;
 
   private:
     /** @brief Structure representing per-layer information of YoloUltralyticsDetect output. */

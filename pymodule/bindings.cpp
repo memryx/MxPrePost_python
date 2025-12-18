@@ -109,6 +109,16 @@ class Pipeline {
         return result;
     }
 
+    py::array draw(py::array& arr, const MX::Proc::Result& result) {
+        // convert numpy to cv::Mat
+        cv::Mat img = numpy_to_mat(arr);
+
+        // call draw
+        processor_->draw(img, result);
+
+        return mat_to_numpy(img);
+    }
+
   private:
     Processor* processor_;
     std::vector<float*> ofmap_ptrs_;
@@ -147,6 +157,7 @@ PYBIND11_MODULE(mxpipe, m) {
                  py::arg("ori_height"),
                  py::arg("conf_thres") = 0.3f,
                  py::arg("iou_thres") = 0.4f)
+            .def("draw", &Pipeline::draw)
             .def("preprocess", &Pipeline::preprocess)
             .def("postprocess", &Pipeline::postprocess);
 }
