@@ -231,6 +231,9 @@ class YoloApp {
         YoloConfig config;
         config.ori_width = (int)vcap.get(cv::CAP_PROP_FRAME_WIDTH);
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
+        config.conf = 0.3f;
+        config.iou = 0.4f;
+        config.valid_classes = {0};
         pipe_ = MX::Pipe::Pipeline::create("yolov8_detect", config);
 
         // Get model info and allocate output buffer

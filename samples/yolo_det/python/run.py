@@ -65,6 +65,9 @@ class YoloApp:
             task="yolov8_detect",
             ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            conf=0.3,
+            iou=0.4,
+            valid_classes=[0]
         )
 
         # Start display thread
