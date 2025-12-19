@@ -32,8 +32,9 @@ namespace MX {
                  float conf_,
                  int cls_id_,
                  const std::string& cls_name_ = "") :
-                x_min(x_min_), y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_),
-                cls_id(cls_id_), cls_name(cls_name_) {
+                x_min(x_min_),
+                y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_), cls_id(cls_id_),
+                cls_name(cls_name_) {
                 update_xyxy();
                 update_xywh();
             }
@@ -60,7 +61,7 @@ namespace MX {
             std::vector<std::vector<std::pair<float, float>>> keypoints;
         };
 
-        struct YoloDetectConfig {
+        struct YoloConfig {
             int ori_width = -1;       // [Required] Original image width
             int ori_height = -1;      // [Required] Original image height
             float conf_thres = 0.3f;  // [Optional] Confidence threshold

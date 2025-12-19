@@ -228,7 +228,7 @@ class YoloApp {
         initVcap(vcap, video_src, src_is_cam);
 
         // Get input image dimensions
-        YoloDetectConfig config;
+        YoloConfig config;
         config.ori_width = (int)vcap.get(cv::CAP_PROP_FRAME_WIDTH);
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
         pipe_ = MX::Pipe::Pipeline::create("yolov8_detect", config);

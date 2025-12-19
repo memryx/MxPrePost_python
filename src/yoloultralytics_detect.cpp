@@ -139,7 +139,7 @@ void YoloUltralyticsDetect::_draw_bbox(cv::Mat& image, const BBox& bbox) {
                 cv::LINE_AA);
 }
 
-YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloDetectConfig& config) {
+YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     model_w_ = 640;
     model_h_ = 640;
     model_ch_ = 3;

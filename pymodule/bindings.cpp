@@ -69,7 +69,7 @@ class BindPipeline {
                  float iou_thres = 0.4) {
 
         // TODO: factory method for config
-        YoloDetectConfig config{ori_width, ori_height, conf_thres, iou_thres};
+        YoloConfig config{ori_width, ori_height, conf_thres, iou_thres};
         pipeline_ = Pipeline::create(task, config);
     }
 

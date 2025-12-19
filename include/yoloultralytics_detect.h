@@ -23,7 +23,7 @@ using namespace MX::Pipe;
 class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
   public:
     /** @brief Constructor for using official 80 classes COCO dataset. */
-    YoloUltralyticsDetect(const YoloDetectConfig& config);
+    YoloUltralyticsDetect(const YoloConfig& config);
 
     cv::Mat preprocess(const cv::Mat& image) override;
     void postprocess(const std::vector<float*>& outputs, Result& result) override;
