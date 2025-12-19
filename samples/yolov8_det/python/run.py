@@ -1,73 +1,48 @@
-"""
-============
-Information:
-============
-Project: YOLOv8 example code on MXA
-File Name: app.py
-
-============
-Description:
-============
-A script to show how to use the MultiStreamAcclerator API to perform a real-time inference
-on MX3 using YOLOv8 model.
-"""
-
-
 # Imports
 import time
 import argparse
 import numpy as np
 import cv2
-from queue import Queue, Full
+from queue import Queue
 import queue
 from threading import Thread
 from collections import defaultdict
 import sys
 import mxpipe
 
-video_stream_1 = '/home/mixtile/memryx/media/people_1.mp4'
-video_stream_2 = '/home/mixtile/memryx/media/dataset_2.mp4'
-dfp = '/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite.dfp'
-post_onnx_path = '/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite_post.tflite'
+video_stream_1 = "/home/mixtile/memryx/media/people_1.mp4"
+video_stream_2 = "/home/mixtile/memryx/media/dataset_2.mp4"
+dfp = "/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite.dfp"
+post_onnx_path = (
+    "/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite_post.tflite"
+)
 
 
 FPS_LOG_INTERVAL = 30  # print out FPS every X frames
 
 
-class Yolo8sMxa:
+class YoloApp:
     """
-    A demo app to run YOLOv8 on the MemryX MXA.
+    A demo app to run YOLO on the MemryX MXA.
     """
 
-    def __init__(self, video_paths, model_type, show=True):
+    def __init__(self, args):
         """
         Initialization function.
         """
+
+        self.show = args.show
+        self.old_bind = args.old_bind
+
         # Display control and stream initialization
-        self.show = show
         self.done = False
-        self.num_streams = len(video_paths)  # Number of streams
+        self.num_streams = len(args.video_paths)  # Number of streams
 
         # Stream-related containers and initialization
         self.streams = []
-        self.streams_idx = [True] * self.num_streams
-        self.stream_window = [False] * self.num_streams
         self.cap_queue = {i: Queue(maxsize=50) for i in range(self.num_streams)}
         self.result_queue = {i: Queue(maxsize=50) for i in range(self.num_streams)}
-        self.outputs = {i: [] for i in range(self.num_streams)}
-        self.dims = {}
-        self.color_wheel = {}
-        self.model = {}
-        self.model_type = model_type
-
-        # Timing and FPS related
-        self.dt_index = {i: 0 for i in range(self.num_streams)}
-        self.frame_end_time = {i: 0 for i in range(self.num_streams)}
-        self.fps = {i: 0 for i in range(self.num_streams)}
-        self.dt_array = {i: np.zeros(30) for i in range(self.num_streams)}
-        self.writer = {i: None for i in range(self.num_streams)}
         self.srcs_are_cams = {i: True for i in range(self.num_streams)}
-        self.frame_count = {i: 0 for i in range(self.num_streams)}
 
         # FPS calculation related
         self.frame_count = defaultdict(int)
@@ -76,7 +51,7 @@ class Yolo8sMxa:
         self.history_fps = defaultdict(list)
 
         # Initialize video captures, models, and dimensions for each stream
-        for i, video_path in enumerate(video_paths):
+        for i, video_path in enumerate(args.video_paths):
             if "/dev/video" in video_path:
                 self.srcs_are_cams[i] = True
             else:
@@ -85,20 +60,13 @@ class Yolo8sMxa:
             vidcap = cv2.VideoCapture(video_path)
             self.streams.append(vidcap)
 
-            # Get frame dimensions
-            self.dims[i] = (int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                            int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-            self.color_wheel[i] = np.random.randint(0, 255, (20, 3)).astype(np.int32)
-
-            # Initialize the YOLOv8 model
-            # self.model[i] = YoloModel(stream_img_size=(self.dims[i][1], self.dims[i][0], 3), model_type=self.model_type)
-            # self.post = Post(model_type="numpy")
-
         # init MXPipe pipeline
-        self.pipe = mxpipe.Pipeline(task="yolov8_detect",
-                                    ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                                    ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        
+        self.pipe = mxpipe.Pipeline(
+            task="yolov8_detect",
+            ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+        )
+
         # Start display thread
         if self.show:
             self.display_thread = Thread(target=self.display)
@@ -107,134 +75,149 @@ class Yolo8sMxa:
         """
         Start inference on the MXA using multiple streams.
         """
-        # if self.model_type != "numpy":
-        #     accl = MultiStreamAsyncAccl(
-        #         dfp=self.dfp
-        #     )  # Initialize the accelerator with DFP
-        #     accl.set_postprocessing_model(
-        #         self.post_model, model_idx=0
-        #     )  # Set the post-processing model
-        # else:
-        #     accl = MultiStreamAsyncAccl(
-        #         dfp=self.dfp, use_model_shape=(False, False)
-        #     )  # Initialize the accelerator with DFP
-
         if self.show:
             self.display_thread.start()  # Start the display thread
 
-        print ("Run with new binding")
-        import mxapi
-        local = False
-        accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
-        # accl.connect_post_model(args.post_model)
+        if self.old_bind:
+            print("Run with old binding")
+            import memryx
 
-        for i in range(self.num_streams):
-            accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
+            accl = memryx.MultiStreamAsyncAccl(
+                dfp=self.dfp, use_model_shape=(False, False)
+            )
+            accl.connect_streams(
+                self.in_callback_old_bind, self.out_callback_old_bind, self.num_streams
+            )
+            accl.wait()
 
-        accl.start()
-        accl.wait()
-        
+        else:
+            print("Run with new binding")
+            import mxapi
+
+            local = False
+            accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
+            # accl.connect_post_model(args.post_model)
+
+            for i in range(self.num_streams):
+                accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
+
+            accl.start()
+            accl.wait()
+
         self.done = True
 
         # Join display thread
         if self.show:
             self.display_thread.join()
 
-    def in_callback(self, stream_idx):
+    def in_callback(self, stream_id):
         """
         Captures a frame for the video device and pre-processes it.
         """
-        # if self.srcs_are_cams[stream_idx]:
+        # if self.srcs_are_cams[stream_id]:
         while True:
-            
-            got_frame, frame = self.streams[stream_idx].read()
-            
+            got_frame, frame = self.streams[stream_id].read()
+
             if not got_frame or self.done:
-                self.streams_idx[stream_idx] = False
                 return None
 
-            if self.srcs_are_cams[stream_idx] and self.cap_queue[stream_idx].full():
+            if self.srcs_are_cams[stream_id] and self.cap_queue[stream_id].full():
                 # drop frame
                 continue
-            
+
             if self.show:
                 # Put the frame in the cap_queue to be processed later
-                self.cap_queue[stream_idx].put(frame)
-                
+                self.cap_queue[stream_id].put(frame)
+
             # TODO: get frame with shape based on use_model_shape
             frame = self.pipe.preprocess(frame)
             frame = frame.reshape(640, 640, 1, 3)
 
             return frame
 
-
-    def out_callback(self, mxa_output, stream_idx):
+    def out_callback(self, mxa_output, stream_id):
         """
         Post-process the output from MXA.
         """
-        
+
         # call postprocess from mxpipe
         result = self.pipe.postprocess(mxa_output)
-        
+
         # Queue detection results for display
         if self.show:
-            self.result_queue[stream_idx].put(result)
+            self.result_queue[stream_id].put(result)
 
         # Calculate FPS
-        self.update_fps(stream_idx)
-    
+        self.update_fps(stream_id)
+
+    # for old binding test
+    def in_callback_old_bind(self, stream_id):
+        return self.in_callback(stream_id)
+
+    # for old binding test
+    def out_callback_old_bind(self, stream_id, *ofmaps):
+        self.out_callback(list(ofmaps), stream_id)
+
     def display(self):
         """
         Displays the processed frames with detections in separate windows.
         """
         while not self.done:
             # Iterate through each stream for displaying frames
-            for stream_idx in range(self.num_streams):
-                
+            for stream_id in range(self.num_streams):
                 try:
                     # Python blocky queue, no need to check if not queue.empty()
-                    frame = self.cap_queue[stream_idx].get(timeout=2)
-                    result = self.result_queue[stream_idx].get(timeout=2)
+                    frame = self.cap_queue[stream_id].get(timeout=2)
+                    result = self.result_queue[stream_id].get(timeout=2)
                 except queue.Empty:
-                    break 
+                    break
 
                 # Draw detections on the frame
                 display_img = self.pipe.draw(frame, result)
-                
+
                 # Add FPS to frame
-                fps_text = f"FPS: {self.fps_number[stream_idx]:.2f}"
-                display_img = cv2.putText(display_img, fps_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-                
+                fps_text = f"FPS: {self.fps_number[stream_id]:.2f}"
+                display_img = cv2.putText(
+                    display_img,
+                    fps_text,
+                    (50, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (255, 0, 0),
+                    2,
+                )
+
                 # show
-                window_name = f"Stream {stream_idx} - YOLOv8"
+                window_name = f"Stream {stream_id} - YOLO Detection"
                 cv2.imshow(window_name, display_img)
 
             # Exit if 'q' is pressed
-            if cv2.waitKey(1) == ord('q'):
+            if cv2.waitKey(1) == ord("q"):
                 self.done = True
 
         # Close all windows and release resources after processing
         cv2.destroyAllWindows()
         for stream in self.streams:
             stream.release()
-        
-    def update_fps(self, stream_idx):
 
+    def update_fps(self, stream_id):
         # increment frame count
-        self.frame_count[stream_idx] += 1
-        
+        self.frame_count[stream_id] += 1
+
         now_ms = int(time.time() * 1000)
 
-        if self.frame_count[stream_idx] == 1:
+        if self.frame_count[stream_id] == 1:
             # record start time
-            self.start_ms[stream_idx] = now_ms
+            self.start_ms[stream_id] = now_ms
         else:
             # print FPS
-            if self.frame_count[stream_idx] % FPS_LOG_INTERVAL == 0:
-                
+            if self.frame_count[stream_id] % FPS_LOG_INTERVAL == 0:
                 # msg
                 msg = "Frame cnt: {} stream {} => FPS: {:.2f}"
-                lines = [msg.format(self.frame_count[i], i, self.fps_number[i]) for i in range(self.num_streams)]
+                lines = [
+                    msg.format(self.frame_count[i], i, self.fps_number[i])
+                    for i in range(self.num_streams)
+                ]
                 print("\n".join(lines))
 
                 # Overwrite previous msg
@@ -246,64 +229,60 @@ class Yolo8sMxa:
                     self.history_fps[i].append(self.fps_number[i])
 
             # update fps_number
-            duration_ms = now_ms - self.start_ms[stream_idx]
-            self.fps_number[stream_idx] = (self.frame_count[stream_idx] * 1000.0) / duration_ms
+            duration_ms = now_ms - self.start_ms[stream_id]
+            self.fps_number[stream_id] = (
+                self.frame_count[stream_id] * 1000.0
+            ) / duration_ms
 
-    def get_avg_fps(self, stream_idx):
-        if self.history_fps[stream_idx]:
-            return np.mean(self.history_fps[stream_idx])
+    def get_avg_fps(self, stream_id):
+        if self.history_fps[stream_id]:
+            return np.mean(self.history_fps[stream_id])
         return 0
 
 
 def main(args):
     """
-    Main function to start YOLOv8 inference.
+    Main function to start YOLO inference.
     """
-    if args.post_model.endswith('.onnx'):
-        model_type = 'onnx'
-    elif args.post_model.endswith('.tflite'):
-        model_type = 'tflite'
-    elif args.post_model == "numpy":
-        model_type = 'numpy'
-    else:
-        raise ValueError(f"Unsupported post-processing model format: {args.post_model}")
 
     # Initialize the application with video paths and display settings
-    yolo8s_inf = Yolo8sMxa(video_paths=args.video_paths, model_type=model_type, show=args.show)
-    yolo8s_inf.dfp = args.dfp  # Set the DFP path from arguments
-    yolo8s_inf.post_model = args.post_model  # Set the post-processing model path from arguments
-    yolo8s_inf.run()  # Start inference
+    app = YoloApp(args)
+    app.dfp = args.dfp  # Set the DFP path from arguments
+    app.run()  # Start inference
 
-    # Print final average FPS for each stream
-    # for i in range(yolo8s_inf.num_streams):
-    #     sys.stdout.write("\033[F\033[K")
-    for i in range(yolo8s_inf.num_streams):
-        print(f'Final Avg FPS for Stream {i}: {yolo8s_inf.get_avg_fps(i):.2f}')
-
+    for i in range(app.num_streams):
+        print(f"Final Avg FPS for Stream {i}: {app.get_avg_fps(i):.2f}")
 
 
 if __name__ == "__main__":
     # Argument parser
     parser = argparse.ArgumentParser(description="\033[34mMemryX YoloV8 Demo\033[0m")
-    
+
     # Video input paths
-    parser.add_argument('--video_paths', nargs='+', dest="video_paths", 
-                        action="store", 
-                        default=[video_stream_2],
-                        help="Path to video files for inference. Use '/dev/video0' for webcam. (Default:'/dev/video0')")
-    
+    parser.add_argument(
+        "--video_paths",
+        nargs="+",
+        dest="video_paths",
+        action="store",
+        default=[video_stream_2],
+        help="Path to video files for inference. Use '/dev/video0' for webcam. (Default:'/dev/video0')",
+    )
+
     # Option to turn on display
-    parser.add_argument('--show', action ='store_true', help="Display cartoonized video")
+    parser.add_argument("--show", action="store_true", help="Display results")
 
     # DFP model argument
-    parser.add_argument('-d', '--dfp', type=str, 
-                        default=dfp, 
-                        help="Path to the compiled DFP file (default: 'models/tflite/YOLO_v8_small_640_640_3_tflite.dfp')")
+    parser.add_argument(
+        "-d",
+        "--dfp",
+        type=str,
+        default=dfp,
+        help="Path to the compiled DFP file (default: 'models/tflite/YOLO_v8_small_640_640_3_tflite.dfp')",
+    )
 
-    # Post-processing model argument
-    parser.add_argument('-p', '--post_model', type=str, 
-                        default=post_onnx_path, 
-                        help="Path to the post-processing ONNX file (default: 'models/tflite/YOLO_v8_small_640_640_3_tflite_post.tflite')")
+    parser.add_argument(
+        "--old_bind", action="store_true", help="Use old binding method"
+    )
 
     args = parser.parse_args()
 
