@@ -110,7 +110,7 @@ ln -sv ../../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.
 #               --video_paths videos/sample.mp4 \
 #               --show
 #               --old_bind
-python run.py -d <onnx_model> --video_paths <video> [--show] [--old_bind]
+python run.py [-d <onnx_model>] [--video_paths <video>] [--show] [--old_bind]
 ```
 Notes
 - `--old_bind`: Use legacy accl binding (MultiStreamAsyncAccl)
@@ -122,5 +122,5 @@ cd POST_API/samples/yolo_det/cpp
 
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
-./yolo_detect -d <dfp_path> --video_paths "cam:0,vid:video_path"
+./yolo_detect [-d <dfp_path>] [--video_paths "cam:0,vid:video_path"] [--show]
 ```

@@ -21,6 +21,8 @@ fs::path model_path = "models/yolov8n/YOLO_v8_nano_640_640_3_onnx.dfp";
 // Default post-processing model path
 fs::path postprocessing_model_path = "models/yolov8n/YOLO_v8_nano_640_640_3_onnx_post.onnx";
 
+MxQt* gui = nullptr;
+
 #define AVG_FPS_CALC_FRAME_COUNT 50  // Number of frames used to calculate average FPS
 #define FRAME_QUEUE_MAX_LENGTH 5
 
@@ -97,7 +99,7 @@ void initVcap(cv::VideoCapture& vcap, const std::string& video_src, bool& src_is
 #endif
     } else if (video_src.substr(0, 3) == "vid") {
         src_is_cam = false;
-        std::cout << "Video source given = " << video_src.substr(4) << "\n\n";
+        std::cout << "Video source given = " << video_src.substr(4) << "\n";
         vcap.open(video_src.substr(4), cv::CAP_ANY);
     } else {
         throw(std::runtime_error("Given video src: " + video_src + " is invalid"));
@@ -111,7 +113,7 @@ void initVcap(cv::VideoCapture& vcap, const std::string& video_src, bool& src_is
 
 class YoloApp {
   private:
-    MX::Pipe::Pipeline* pipeline_;
+    MX::Pipe::Pipeline* pipe_;
 
     // Application Variables
     std::deque<cv::Mat> frames_queue;  // Queue for frames
@@ -119,18 +121,17 @@ class YoloApp {
     cv::VideoCapture vcap;             // Video capture object
     bool src_is_cam = false;
     std::vector<float*> ofmaps;  // Buffer for the output of the accelerator
-    MxQt* gui_;                  // GUI for display
     int length;
-    std::string model_type;
 
     // FPS related
     int num_frames = 0;
     int frame_count = 0;
     float fps_number = .0;  // FPS counter
     std::chrono::milliseconds start_ms;
+    std::vector<float> history_fps;
 
     // Input callback function to fetch frames and preprocess them
-    bool in_callback(std::vector<const MX::Types::FeatureMap*> dst, int streamLabel) {
+    bool in_callback(std::vector<const MX::Types::FeatureMap*> dst, int stream_id) {
         if (runflag.load()) {
             cv::Mat inframe;
             cv::Mat rgbImage;
@@ -157,7 +158,7 @@ class YoloApp {
                 }
 
                 // Preprocess
-                cv::Mat pre = pipeline_->preprocess(rgbImage);
+                cv::Mat pre = pipe_->preprocess(rgbImage);
                 dst[0]->set_data((float*)pre.data);
                 return true;
             }
@@ -168,7 +169,7 @@ class YoloApp {
     }
 
     // Output callback function to process MXA output and display results
-    bool out_callback(std::vector<const MX::Types::FeatureMap*> mxa_outputs, int streamLabel) {
+    bool out_callback(std::vector<const MX::Types::FeatureMap*> mxa_outputs, int stream_id) {
 
         // Get the output data from MXA
         for (int i = 0; i < mxa_outputs.size(); i++) {
@@ -185,13 +186,20 @@ class YoloApp {
 
         // Postprocess
         MX::Pipe::Result result;
-        pipeline_->postprocess(ofmaps, result);
-        pipeline_->draw(displayImage, result);
+        pipe_->postprocess(ofmaps, result);
+        pipe_->draw(displayImage, result);
 
         // Display the updated image in the GUI
-        gui_->screens[0]->SetDisplayFrame(streamLabel, displayImage, fps_number);
+        if (gui)
+            gui->screens[0]->SetDisplayFrame(stream_id, displayImage, fps_number);
 
-        // Calculate FPS
+        // update fps
+        _update_fps(stream_id);
+
+        return true;
+    }
+
+    void _update_fps(int stream_id) {
         frame_count++;
         if (frame_count == 1) {
             start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -202,21 +210,19 @@ class YoloApp {
                             std::chrono::system_clock::now().time_since_epoch()) -
                     start_ms;
             fps_number = (float)AVG_FPS_CALC_FRAME_COUNT * 1000 / (float)(duration.count());
+
+            // Store FPS in history and print
+            history_fps.push_back(fps_number);
+            std::cout << "Stream " << stream_id << " FPS: " << fps_number << "\n";
+
+            // Reset for next calculation
             frame_count = 0;
         }
-        return true;
     }
 
   public:
     // Constructor
-    YoloApp(MX::Runtime::MxAccl* accl,
-            std::string video_src,
-            std::string model_type,
-            MxQt* gui,
-            int stream_id) {
-
-        gui_ = gui;
-        this->model_type = model_type;
+    YoloApp(MX::Runtime::MxAccl* accl, std::string video_src, int stream_id) {
 
         // Initialize video capture
         initVcap(vcap, video_src, src_is_cam);
@@ -225,7 +231,7 @@ class YoloApp {
         YoloDetectConfig config;
         config.ori_width = (int)vcap.get(cv::CAP_PROP_FRAME_WIDTH);
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
-        pipeline_ = MX::Pipe::Pipeline::create("yolov8_detect", config);
+        pipe_ = MX::Pipe::Pipeline::create("yolov8_detect", config);
 
         // Get model info and allocate output buffer
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);
@@ -253,7 +259,15 @@ class YoloApp {
         for (int i = 0; i < ofmaps.size(); i++) {
             delete[] ofmaps[i];  // Clean up memory
         }
-        delete pipeline_;
+        delete pipe_;
+    }
+
+    float get_avg_fps() const {
+        float sum_fps = 0.0;
+        for (const auto& fps : history_fps) {
+            sum_fps += fps;
+        }
+        return sum_fps / history_fps.size();
     }
 };
 
@@ -301,6 +315,11 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
         }
+
+        else if (arg == "--show") {
+            // Creating GuiView for display
+            gui = new MxQt(argc, argv);
+        }
         // Handle unknown options
         else {
             std::cerr << "Error: Unknown option " << arg << "\n";
@@ -314,18 +333,6 @@ int main(int argc, char* argv[]) {
         video_src_list.push_back(video_str);
     }
 
-    std::string model_type;
-    std::string path_str = postprocessing_model_path.string();  // convert path to string
-
-    if (path_str.size() >= 5 && path_str.substr(path_str.size() - 5) == ".onnx") {
-        model_type = "onnx";
-    } else if (path_str.size() >= 7 && path_str.substr(path_str.size() - 7) == ".tflite") {
-        model_type = "tflite";
-    } else {
-        std::cerr << "Unsupported post-processing model format: " << path_str << std::endl;
-        return 1;
-    }
-
     // Create the Accl object and load the DFP model
     std::vector<int> device_ids = {0};
     std::array<bool, 2> use_model_shape = {false, false};
@@ -335,26 +342,32 @@ int main(int argc, char* argv[]) {
     // accl.connect_post_model(fs::path(postprocessing_model_path));
 
     // Creating GuiView for display
-    MxQt gui(argc, argv);
-    if (video_src_list.size() == 1)
-        gui.screens[0]->SetSquareLayout(1, false);  // Single stream layout
-    else
-        gui.screens[0]->SetSquareLayout(
-                static_cast<int>(video_src_list.size()));  // Multi-stream layout
+    if (gui) {
+        gui->screens[0]->SetSquareLayout(video_src_list.size(), false);  // Single stream layout
+    }
 
     // Creating YoloApp objects for each video stream
     std::vector<YoloApp*> yolo_objs;
     for (int i = 0; i < video_src_list.size(); ++i) {
-        YoloApp* obj = new YoloApp(&accl, video_src_list[i], model_type, &gui, i);
+        YoloApp* obj = new YoloApp(&accl, video_src_list[i], i);
         yolo_objs.push_back(obj);
     }
 
     // Run the accelerator and wait
     accl.start();
-    gui.Run();  // Wait until the exit button is pressed in the Qt window
+    if (gui)
+        gui->Run();  // Wait until the exit button is pressed in the Qt window
+    else
+        accl.wait();
     accl.stop();
 
+    // print average FPS for each stream
+    for (int i = 0; i < yolo_objs.size(); ++i) {
+        std::cout << "Stream " << i << " Average FPS: " << yolo_objs[i]->get_avg_fps() << "\n";
+    }
+
     // Cleanup
+    delete gui;
     for (int i = 0; i < video_src_list.size(); ++i) {
         delete yolo_objs[i];
     }
