@@ -97,9 +97,9 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug  && make -j$(nproc)
 
 ## Quick Start
 
-Python:
+### Python example:
 ```bash
-cd POST_API/samples/yolov8_det/python
+cd POST_API/samples/yolo_det/python
 
 # Create a symbolic link to the built module, note that python version here is based on your virtualenv
 # ex: ln -sv ../../pymodule/build/mxpipe.cpython-310-x86_64-linux-gnu.so
@@ -116,11 +116,11 @@ Notes
 - `--old_bind`: Use legacy accl binding (MultiStreamAsyncAccl)
 - `--show`: Display results
 
-C++:
+### C++ example:
 ```bash
-cd POST_API/samples/yolov8_det/cpp
+cd POST_API/samples/yolo_det/cpp
 
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
-./yolov8_detect -d <dfp_path> --video_paths "cam:0,vid:video_path"
+./yolo_detect -d <dfp_path> --video_paths "cam:0,vid:video_path"
 ```

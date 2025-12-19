@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-get_filename_component(app_name yolov8_detect NAME)
+get_filename_component(app_name yolo_detect NAME)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
