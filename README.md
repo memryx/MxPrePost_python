@@ -1,6 +1,6 @@
-# PrePost Processing API
+# Mx Pipeline Package
 
-The Prepost class provides a unified interface for model pre-processing and post-processing, designed for seamless integration within YOLOv8 - YOLOv11 applications such as  detection, segmentation, and pose estimation.
+This package provides a unified interface for model pre-processing and post-processing, designed for seamless integration within YOLOv8 - YOLOv11 applications such as  detection, segmentation, and pose estimation.
 
 It handles tasks like:
 - Pre-processing: Frame preparation (e.g., resizing, normalization).
@@ -11,21 +11,21 @@ This interface is typically used inside the `input and output callbacks` of an a
 ## General Usage
 
 ```python
-from memryx import Prepost # import from memryx runtime package
+from memryx import mxpipe # eventually this package will be placed under runtime
 
 class App:
     def __init__(self):
         # Initialize for a specific task
-        self.prepost = Prepost(task="yolov8_detect")
+        self.pipe = mxpipe.Pipeline(task="yolov8_detect")
 
 
     def in_callback(self):
         frame = cv2.VideoCapture.read()
-        frame = self.prepost.preprocess(frame)  # preprocess
+        frame = self.pipe.preprocess(frame)  # preprocess
         return frame
     
 	def out_callback(self, fmaps: list[FeatureMap]):
-        results = self.prepost.postprocess(fmaps) # postprocess
+        results = self.pipe.postprocess(fmaps) # postprocess
 
         for r in results:
             boxes = r.boxes          # Boxes object for bounding box outputs
@@ -42,7 +42,7 @@ You can configure the behavior during initialization. This sets the base configu
 
 Example:
 ```python
-prepost = Prepost(
+pipe = Pipeline(
     conf=0.5,                   # confidence threshold
     iou=0.5,                    # IoU threshold for NMS
     imgsz=(640, 640),           # model input size (width, height)
@@ -62,10 +62,10 @@ For example: Temporarily lower the confidence threshold and disable NMS for fram
 frame_id += 1
 if frame_id == 10:
     # Overrides defaults only for this specific call
-    result = prepost.postprocess(fmaps, conf=0.3, nms=False) 
+    result = pipe.postprocess(fmaps, conf=0.3, nms=False) 
 else:
     # Uses the base configuration
-    result = prepost.postprocess(fmaps)
+    result = pipe.postprocess(fmaps)
 ```
 
 ## Result Visualization
@@ -73,8 +73,54 @@ else:
 We provide supplementary `draw()` function call for convenient annotation.
 
 ```python
-results = prepost.postprocess(fmaps)
-annotated_image = prepost.draw(results, raw_image)
+results = pipe.postprocess(fmaps)
+annotated_image = pipe.draw(results, raw_image)
 
 # User handles display, e.g. cv2.imshow(...)
+```
+
+## Installtion
+```bash
+# clone
+git clone https://github.com/memryx/POST_API.git
+cd POST_API
+git submodule update --init
+
+# build cpp shared library: libmxpipe.so
+mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
+
+# build pymodule: mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
+source ~/.mx/bin/activate # or whatever your virtualenv
+cd POST_API/pymodule
+mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug  && make -j$(nproc)
+```
+
+## Quick Start
+
+Python:
+```bash
+cd POST_API/samples/yolov8_det/python
+
+# Create a symbolic link to the built module, note that python version here is based on your virtualenv
+# ex: ln -sv ../../pymodule/build/mxpipe.cpython-310-x86_64-linux-gnu.so
+ln -sv ../../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
+
+# ex:
+# python run.py -d models/onnx/YOLO_v8_small_640_640_3_onnx.dfp \
+#               --video_paths videos/sample.mp4 \
+#               --show
+#               --old_bind
+python run.py -d <onnx_model> --video_paths <video> [--show] [--old_bind]
+```
+Notes
+- `--old_bind`: Use legacy accl binding (MultiStreamAsyncAccl)
+- `--show`: Display results
+
+C++:
+```bash
+cd POST_API/samples/yolov8_det/cpp
+
+mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
+
+./yolov8_detect -d <dfp_path> --video_paths "cam:0,vid:video_path"
 ```

@@ -33,11 +33,9 @@ void signal_handler(int p_signal) {
 void printUsage(const std::string& programName) {
     std::cout
             << "Usage: " << programName
-            << " [-d <dfp_path>] [-m <post_model>] [--video_paths \"cam:0,vid:video_path\"]\n"
+            << " [-d <dfp_path>] [--video_paths \"cam:0,vid:video_path\"]\n"
             << "Options:\n"
             << "  -d, --dfp_path        (Optional) Path to the DFP. Default: " << model_path
-            << "\n"
-            << "  -m, --post_model      (Optional) Path to the post-model. Default: "
             << postprocessing_model_path << "\n"
             << "  --video_paths         (Optional) Video paths in the format \"cam:0,vid:video_path,vid:video2_path\". Default: cam:0\n";
 }
