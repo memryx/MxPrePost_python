@@ -137,7 +137,7 @@ PYBIND11_MODULE(mxpipe, m) {
     // Result class
     py::class_<MX::Pipe::Result>(m, "Result")
             .def(py::init<>())
-            .def_readwrite("bboxes", &Result::bboxes)
+            .def_readwrite("boxes", &Result::boxes)
             .def_readwrite("masks", &Result::masks)
             .def_readwrite("keypoints", &Result::keypoints);
 

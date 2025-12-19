@@ -59,12 +59,10 @@ float YoloUltralyticsDetect::_calc_iou(const BBox& bbox_0, const BBox& bbox_1) {
     return intersection_area / union_area;
 }
 
-void YoloUltralyticsDetect::_nms(std::list<BBox>& bboxes,
-                                 const BBox& candidate,
-                                 float iou_thresh) {
+void YoloUltralyticsDetect::_nms(std::list<BBox>& boxes, const BBox& candidate, float iou_thresh) {
     bool candidate_survives = true;
 
-    for (auto it = bboxes.begin(); it != bboxes.end();) {
+    for (auto it = boxes.begin(); it != boxes.end();) {
         float iou = _calc_iou(*it, candidate);
 
         if (iou > iou_thresh) {
@@ -74,7 +72,7 @@ void YoloUltralyticsDetect::_nms(std::list<BBox>& bboxes,
                 break;
             } else {
                 // Candidate suppresses existing box
-                it = bboxes.erase(it);  // safe: returns next iterator
+                it = boxes.erase(it);  // safe: returns next iterator
                 continue;
             }
         }
@@ -84,7 +82,7 @@ void YoloUltralyticsDetect::_nms(std::list<BBox>& bboxes,
 
     // Add candidate if it wasn't suppressed
     if (candidate_survives) {
-        bboxes.push_back(candidate);
+        boxes.push_back(candidate);
     }
 }
 
@@ -239,7 +237,7 @@ cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
 }
 
 void YoloUltralyticsDetect::draw(cv::Mat& image, const Result& result) {
-    for (const BBox& bbox : result.bboxes) {
+    for (const BBox& bbox : result.boxes) {
         _draw_bbox(image, bbox);
     }
 }
@@ -255,7 +253,7 @@ float YoloUltralyticsDetect::_conf_to_fastSigmoid_inputVal(float conf) {
     return x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
 }
 
-void YoloUltralyticsDetect::_get_detection(std::list<BBox>& bboxes,
+void YoloUltralyticsDetect::_get_detection(std::list<BBox>& boxes,
                                            int layer_id,
                                            float* conf_cell_buf,
                                            float* coord_cell_buf,
@@ -338,7 +336,7 @@ void YoloUltralyticsDetect::_get_detection(std::list<BBox>& bboxes,
     BBox bbox(min_x, min_y, max_x, max_y, best_label_score, best_label, COCO_NAMES[best_label]);
 
     // apply NMS
-    _nms(bboxes, bbox, iou_thres_);
+    _nms(boxes, bbox, iou_thres_);
 }
 
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
@@ -372,7 +370,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
             for (size_t col = 0; col < layer.width; col++) {
                 float* conf_cell_buf = conf_row_buf + col * class_count_;
                 float* coord_cell_buf = coord_row_buf + col * layer.coord_fmap_size;
-                _get_detection(result.bboxes, layer_id, conf_cell_buf, coord_cell_buf, row, col);
+                _get_detection(result.boxes, layer_id, conf_cell_buf, coord_cell_buf, row, col);
             }
         }
     }
