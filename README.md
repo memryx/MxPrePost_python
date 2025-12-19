@@ -43,12 +43,10 @@ You can configure the behavior during initialization. This sets the base configu
 Example:
 ```python
 pipe = Pipeline(
+    task="yolov8_detect",       # yolovX_Y (e.g. yolov8_detect | yolov9_seg | yolov11_pose)
     conf=0.5,                   # confidence threshold
     iou=0.5,                    # IoU threshold for NMS
-    imgsz=(640, 640),           # model input size (width, height)
-    valid_classes=["person", "ball"],
-    nms=True,                   # enable/disable NMS
-    task="yolov8_detect",       # yolov8_detect | yolov8_seg | yolov8_pose ...
+    valid_classes=[0, 2],       # filter predictions by class IDs (COCO dataset)
 )
 ```
 
@@ -56,13 +54,13 @@ pipe = Pipeline(
 
 `preprocess()` and `postprocess()` accepts multiple arguments that can be passed at processing time to override the defaults.
 
-For example: Temporarily lower the confidence threshold and disable NMS for frame ID 10.
+For example: Temporarily lower the confidence threshold and return person class only for frame ID 10.
 
 ```python
 frame_id += 1
 if frame_id == 10:
     # Overrides defaults only for this specific call
-    result = pipe.postprocess(fmaps, conf=0.3, nms=False) 
+    result = pipe.postprocess(fmaps, conf=0.3, valid_classes=[0]) 
 else:
     # Uses the base configuration
     result = pipe.postprocess(fmaps)

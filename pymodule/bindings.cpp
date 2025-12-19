@@ -9,9 +9,7 @@
 
 #include "pipeline.h"
 
-#include <iostream>
 #include <opencv2/opencv.hpp>
-#include <vector>
 
 namespace py = pybind11;
 using namespace MX::Pipe;
@@ -65,11 +63,22 @@ class BindPipeline {
     BindPipeline(const std::string& task,
                  int ori_width,
                  int ori_height,
-                 float conf_thres = 0.3,
-                 float iou_thres = 0.4) {
+                 float conf = 0.3,
+                 float iou = 0.4,
+                 std::vector<int> valid_classes = {}) {
 
-        // TODO: factory method for config
-        YoloConfig config{ori_width, ori_height, conf_thres, iou_thres};
+        YoloConfig config;
+        config.ori_width = ori_width;
+        config.ori_height = ori_height;
+        config.conf = conf;
+        config.iou = iou;
+
+        // convert valid_classes vector to unordered_set
+        for (const auto& cls : valid_classes) {
+            config.valid_classes.insert(cls);
+        }
+
+        // create pipeline using factory method
         pipeline_ = Pipeline::create(task, config);
     }
 
@@ -151,12 +160,13 @@ PYBIND11_MODULE(mxpipe, m) {
 
     // Pipeline class
     py::class_<BindPipeline>(m, "Pipeline")
-            .def(py::init<std::string, int, int, float, float>(),
+            .def(py::init<std::string, int, int, float, float, std::vector<int>>(),
                  py::arg("task"),
                  py::arg("ori_width"),
                  py::arg("ori_height"),
-                 py::arg("conf_thres") = 0.3f,
-                 py::arg("iou_thres") = 0.4f)
+                 py::arg("conf"),
+                 py::arg("iou"),
+                 py::arg("valid_classes"))
             .def("draw", &BindPipeline::draw)
             .def("preprocess", &BindPipeline::preprocess)
             .def("postprocess", &BindPipeline::postprocess);

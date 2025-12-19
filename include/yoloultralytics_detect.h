@@ -59,10 +59,10 @@ class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
 
     // Model-specific parameters.
     const char** class_labels_;
-    size_t class_count_;
-    size_t model_w_;   // Model input width to accelerator
-    size_t model_h_;   // Model input height to accelerator
-    size_t model_ch_;  // Model input channel to accelerator
+    int class_count_;
+    const int model_w_ = 640;  // Model input width to accelerator
+    const int model_h_ = 640;  // Model input height to accelerator
+    const int model_ch_ = 3;   // Model input channel to accelerator
 
     // Colors for labels and bounding boxes.
     std::vector<cv::Scalar> class_label_colors_;
@@ -70,8 +70,9 @@ class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
 
     // Conf and IOU thresholds.
     float conf_thres_;
-    float conf_thres_fastSigmoid_;  // Converted conf threshold for fast-sigmoid
     float iou_thres_;
+    std::unordered_set<int> valid_classes_;
+    float conf_thres_fastSigmoid_;  // Converted conf threshold for fast-sigmoid
 
     // Letterbox ratio and pad.
     float letterbox_ratio_;

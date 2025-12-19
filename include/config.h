@@ -3,6 +3,8 @@
 #include <iostream>
 #include <list>
 #include <queue>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace MX {
@@ -32,9 +34,8 @@ namespace MX {
                  float conf_,
                  int cls_id_,
                  const std::string& cls_name_ = "") :
-                x_min(x_min_),
-                y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_), cls_id(cls_id_),
-                cls_name(cls_name_) {
+                x_min(x_min_), y_min(y_min_), x_max(x_max_), y_max(y_max_), conf(conf_),
+                cls_id(cls_id_), cls_name(cls_name_) {
                 update_xyxy();
                 update_xywh();
             }
@@ -62,10 +63,11 @@ namespace MX {
         };
 
         struct YoloConfig {
-            int ori_width = -1;       // [Required] Original image width
-            int ori_height = -1;      // [Required] Original image height
-            float conf_thres = 0.3f;  // [Optional] Confidence threshold
-            float iou_thres = 0.4f;   // [Optional] IOU threshold for NMS
+            int ori_width = -1;                     // [Required] Original image width
+            int ori_height = -1;                    // [Required] Original image height
+            float conf = 0.3f;                      // [Optional] Confidence threshold
+            float iou = 0.4f;                       // [Optional] IOU threshold for NMS
+            std::unordered_set<int> valid_classes;  // [Optional] List of valid class names
         };
     }
 }

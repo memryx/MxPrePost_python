@@ -140,16 +140,14 @@ void YoloUltralyticsDetect::_draw_bbox(cv::Mat& image, const BBox& bbox) {
 }
 
 YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
-    model_w_ = 640;
-    model_h_ = 640;
-    model_ch_ = 3;
     class_labels_ = COCO_NAMES;
     class_count_ = COCO_CLASS_NUMBER;
     int color_size = COCO_TEXT_COLORS.size();
 
     // init settings from config
-    conf_thres_ = config.conf_thres;
-    iou_thres_ = config.iou_thres;
+    conf_thres_ = config.conf;
+    iou_thres_ = config.iou;
+    valid_classes_ = config.valid_classes;
 
     // compute padding
     // TODO: support vertical images as well
@@ -263,15 +261,25 @@ void YoloUltralyticsDetect::_get_detection(std::list<BBox>& boxes,
     float best_label_score = conf_cell_buf[0] - 1.f;  // arbitrary small number
     int best_label = -1;
 
-    for (size_t label = 0; label < class_count_; label++) {
-
-        if (conf_cell_buf[label] < conf_thres_fastSigmoid_)
-            continue;
-
-        if (conf_cell_buf[label] > best_label_score) {
-            best_label_score = conf_cell_buf[label];
+    // find best label
+    auto try_update = [&](int label) {
+        float score = conf_cell_buf[label];
+        if (score < conf_thres_fastSigmoid_)
+            return;
+        if (score > best_label_score) {
+            best_label_score = score;
             best_label = label;
         }
+    };
+
+    if (valid_classes_.empty()) {
+        // loop through all classes
+        for (int label = 0; label < class_count_; ++label)
+            try_update(label);
+    } else {
+        // loop through valid classes only
+        for (int label : valid_classes_)
+            try_update(label);
     }
 
     // No score of detection over conf threshold
