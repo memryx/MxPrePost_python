@@ -5,7 +5,7 @@
 using namespace MX::Pipe;
 
 Pipeline* Pipeline::create(const std::string& task, const YoloConfig& config) {
-    if (task == "yolov8_detect") {
+    if (task == "yolov8_det") {
         return new YoloUltralyticsDetect(config);
     } else if (task == "yolov8_seg") {
         // TODO:
@@ -13,8 +13,14 @@ Pipeline* Pipeline::create(const std::string& task, const YoloConfig& config) {
     } else if (task == "yolov8_pose") {
         // TODO:
         return nullptr;
-    } else if (task == "yolov11_detect") {
+    } else if (task == "yolov11_det") {
         return new YoloUltralyticsDetect(config);
+    } else if (task == "yolov11_seg") {
+        // TODO:
+        return nullptr;
+    } else if (task == "yolov11_pose") {
+        // TODO:
+        return nullptr;
     }
 
     throw std::runtime_error("Unsupported task: " + task);

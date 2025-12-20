@@ -234,7 +234,7 @@ class YoloApp {
         config.conf = 0.3f;
         config.iou = 0.4f;
         config.valid_classes = {0};
-        pipe_ = MX::Pipe::Pipeline::create("yolov8_detect", config);
+        pipe_ = MX::Pipe::Pipeline::create("yolov8_det", config);
 
         // Get model info and allocate output buffer
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);

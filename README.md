@@ -16,7 +16,7 @@ from memryx import mxpipe # eventually this package will be placed under runtime
 class App:
     def __init__(self):
         # Initialize for a specific task
-        self.pipe = mxpipe.Pipeline(task="yolov8_detect")
+        self.pipe = mxpipe.Pipeline(task="yolov8_det")
 
 
     def in_callback(self):
@@ -43,7 +43,7 @@ You can configure the behavior during initialization. This sets the base configu
 Example:
 ```python
 pipe = Pipeline(
-    task="yolov8_detect",       # yolovX_Y (e.g. yolov8_detect | yolov9_seg | yolov11_pose)
+    task="yolov8_det",       # yolovX_Y (e.g. yolov8_det | yolov9_seg | yolov11_pose)
     conf=0.5,                   # confidence threshold
     iou=0.5,                    # IoU threshold for NMS
     valid_classes=[0, 2],       # filter predictions by class IDs (COCO dataset)

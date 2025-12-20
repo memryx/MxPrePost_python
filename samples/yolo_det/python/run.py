@@ -62,7 +62,7 @@ class YoloApp:
 
         # init MXPipe pipeline
         self.pipe = mxpipe.Pipeline(
-            task="yolov8_detect",
+            task="yolov8_det",
             ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             conf=0.3,
