@@ -20,17 +20,17 @@
 
 using namespace MX::Pipe;
 
-class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
+class YoloUltralyticsSegment : public MX::Pipe::Pipeline {
   public:
     /** @brief Constructor for using official 80 classes COCO dataset. */
-    YoloUltralyticsDetect(const YoloConfig& config);
+    YoloUltralyticsSegment(const YoloConfig& config);
 
     cv::Mat preprocess(const cv::Mat& image) override;
     void postprocess(const std::vector<float*>& outputs, Result& result) override;
     void draw(cv::Mat& image, const Result& result) override;
 
   private:
-    /** @brief Structure representing per-layer information of YoloUltralyticsDetect output. */
+    /** @brief Structure representing per-layer information of YoloUltralyticsSegment output. */
     struct LayerParams {
         uint8_t coord_port;
         uint8_t conf_port;

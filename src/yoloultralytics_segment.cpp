@@ -1,4 +1,4 @@
-#include "yoloultralytics_detect.h"
+#include "yoloultralytics_segment.h"
 
 #define FONT (cv::FONT_ITALIC)
 #define COCO_CLASS_NUMBER (80)
@@ -47,7 +47,7 @@ static const char* COCO_NAMES[COCO_CLASS_NUMBER] = {
         "scissors",      "teddy bear",    "hair drier",    "toothbrush",
 };
 
-float YoloUltralyticsDetect::_calc_iou(const BBox& bbox_0, const BBox& bbox_1) {
+float YoloUltralyticsSegment::_calc_iou(const BBox& bbox_0, const BBox& bbox_1) {
     float y_min = mxutil_max(bbox_0.y_min, bbox_1.y_min);
     float x_min = mxutil_max(bbox_0.x_min, bbox_1.x_min);
     float y_max = mxutil_min(bbox_0.y_max, bbox_1.y_max);
@@ -59,7 +59,9 @@ float YoloUltralyticsDetect::_calc_iou(const BBox& bbox_0, const BBox& bbox_1) {
     return intersection_area / union_area;
 }
 
-void YoloUltralyticsDetect::_nms(std::list<BBox>& boxes, const BBox& candidate, float iou_thresh) {
+void YoloUltralyticsSegment::_nms(std::list<BBox>& boxes,
+                                  const BBox& candidate,
+                                  float iou_thresh) {
     bool candidate_survives = true;
 
     for (auto it = boxes.begin(); it != boxes.end();) {
@@ -86,7 +88,7 @@ void YoloUltralyticsDetect::_nms(std::list<BBox>& boxes, const BBox& candidate, 
     }
 }
 
-void YoloUltralyticsDetect::_draw_bbox(cv::Mat& image, const BBox& bbox) {
+void YoloUltralyticsSegment::_draw_bbox(cv::Mat& image, const BBox& bbox) {
 
     int x_min = (int)bbox.x_min;
     int y_min = (int)bbox.y_min;
@@ -139,7 +141,7 @@ void YoloUltralyticsDetect::_draw_bbox(cv::Mat& image, const BBox& bbox) {
                 cv::LINE_AA);
 }
 
-YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
+YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
     class_labels_ = COCO_NAMES;
     class_count_ = COCO_CLASS_NUMBER;
     int color_size = COCO_TEXT_COLORS.size();
@@ -204,7 +206,7 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     };
 }
 
-bool YoloUltralyticsDetect::_is_horizontal_input(int ori_w, int ori_h) {
+bool YoloUltralyticsSegment::_is_horizontal_input(int ori_w, int ori_h) {
     if (ori_h > ori_w) {
         printf("Invalid display image: only horizontal images are supported.\n");
         return false;
@@ -212,7 +214,7 @@ bool YoloUltralyticsDetect::_is_horizontal_input(int ori_w, int ori_h) {
     return true;
 }
 
-cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
+cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
 
     // Resize keeping aspect ratio
     cv::Mat resized;
@@ -234,13 +236,13 @@ cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
     return padded;  // shape: (640, 640, 3), range [0,1]
 }
 
-void YoloUltralyticsDetect::draw(cv::Mat& image, const Result& result) {
+void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
     for (const BBox& bbox : result.boxes) {
         _draw_bbox(image, bbox);
     }
 }
 
-float YoloUltralyticsDetect::_conf_to_fastSigmoid_inputVal(float conf) {
+float YoloUltralyticsSegment::_conf_to_fastSigmoid_inputVal(float conf) {
     // Converts a conf value in [0,1] to the corresponding input for the fast-sigmoid
     // function. The fast-sigmoid function: f(x) = x / (1 + |x|), which maps [-inf, +inf] -> [-1,
     // 1]. Steps:
@@ -251,12 +253,12 @@ float YoloUltralyticsDetect::_conf_to_fastSigmoid_inputVal(float conf) {
     return x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
 }
 
-void YoloUltralyticsDetect::_get_detection(std::list<BBox>& boxes,
-                                           int layer_id,
-                                           float* conf_cell_buf,
-                                           float* coord_cell_buf,
-                                           int row,
-                                           int col) {
+void YoloUltralyticsSegment::_get_detection(std::list<BBox>& boxes,
+                                            int layer_id,
+                                            float* conf_cell_buf,
+                                            float* coord_cell_buf,
+                                            int row,
+                                            int col) {
     // process conf score
     float best_label_score = conf_cell_buf[0] - 1.f;  // arbitrary small number
     int best_label = -1;
@@ -347,7 +349,7 @@ void YoloUltralyticsDetect::_get_detection(std::list<BBox>& boxes,
     _nms(boxes, bbox, iou_thres_);
 }
 
-void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
+void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Result& result) {
 
     if (outputs.empty()) {
         throw std::invalid_argument("outputs cannot be null.");
