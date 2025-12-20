@@ -34,10 +34,12 @@ class YoloUltralyticsSegment : public MX::Pipe::Pipeline {
     struct LayerParams {
         uint8_t coord_port;
         uint8_t conf_port;
+        uint8_t mask_coef_port;
         size_t width;
         size_t height;
         size_t ratio;
         size_t coord_fmap_size;
+        size_t mask_fmap_size;
     };
 
     bool _is_horizontal_input(int ori_width, int ori_height);

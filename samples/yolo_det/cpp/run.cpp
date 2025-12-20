@@ -15,6 +15,7 @@ namespace fs = std::filesystem;
 using namespace MX::Pipe;
 
 std::atomic_bool runflag;  // Atomic flag to control run state
+std::string task = "please-specify-me";
 
 // Default model
 fs::path model_path = "models/yolov8n/YOLO_v8_nano_640_640_3_onnx.dfp";
@@ -233,8 +234,8 @@ class YoloApp {
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
         config.conf = 0.3f;
         config.iou = 0.4f;
-        config.valid_classes = {0};
-        pipe_ = MX::Pipe::Pipeline::create("yolov8_det", config);
+        // config.valid_classes = {0};
+        pipe_ = MX::Pipe::Pipeline::create(task, config);
 
         // Get model info and allocate output buffer
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);
@@ -318,10 +319,12 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
         }
-
         else if (arg == "--show") {
             // Creating GuiView for display
             gui = new MxQt(argc, argv);
+        }
+        else if (arg == "-t" || arg == "--task") {
+            task = argv[++i];
         }
         // Handle unknown options
         else {

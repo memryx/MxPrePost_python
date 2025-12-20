@@ -178,32 +178,32 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
         bounding_box_colors_.push_back(bbox_color);
     }
 
-    yolo_post_layers_[0] = {
-            .coord_port = 0,
-            .conf_port = 1,
-            .width = model_w_ / 8,   // L0_HW, 640 / 8 = 80
-            .height = model_h_ / 8,  // L0_HW, 640 / 8 = 80
-            .ratio = 8,
-            .coord_fmap_size = 64,
-    };
+    yolo_post_layers_[0] = {.coord_port = 0,
+                            .conf_port = 1,
+                            .mask_coef_port = 3,
+                            .width = model_w_ / 8,   // L0_HW, 640 / 8 = 80
+                            .height = model_h_ / 8,  // L0_HW, 640 / 8 = 80
+                            .ratio = 8,
+                            .coord_fmap_size = 64,
+                            .mask_fmap_size = 32};
 
-    yolo_post_layers_[1] = {
-            .coord_port = 2,
-            .conf_port = 3,
-            .width = model_w_ / 16,   // L1_HW, 640 / 16 = 40
-            .height = model_h_ / 16,  // L1_HW, 640 / 16 = 40
-            .ratio = 16,
-            .coord_fmap_size = 64,
-    };
+    yolo_post_layers_[1] = {.coord_port = 4,
+                            .conf_port = 5,
+                            .mask_coef_port = 6,
+                            .width = model_w_ / 16,   // L1_HW, 640 / 16 = 40
+                            .height = model_h_ / 16,  // L1_HW, 640 / 16 = 40
+                            .ratio = 16,
+                            .coord_fmap_size = 64,
+                            .mask_fmap_size = 32};
 
-    yolo_post_layers_[2] = {
-            .coord_port = 4,
-            .conf_port = 5,
-            .width = model_w_ / 32,   // L2_HW, 640 / 32 = 20
-            .height = model_h_ / 32,  // L2_HW, 640 / 32 = 20
-            .ratio = 32,
-            .coord_fmap_size = 64,
-    };
+    yolo_post_layers_[2] = {.coord_port = 7,
+                            .conf_port = 8,
+                            .mask_coef_port = 9,
+                            .width = model_w_ / 32,   // L2_HW, 640 / 32 = 20
+                            .height = model_h_ / 32,  // L2_HW, 640 / 32 = 20
+                            .ratio = 32,
+                            .coord_fmap_size = 64,
+                            .mask_fmap_size = 32};
 }
 
 bool YoloUltralyticsSegment::_is_horizontal_input(int ori_w, int ori_h) {
@@ -361,14 +361,13 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         const auto& layer = yolo_post_layers_[layer_id];
         const int conf_per_row = (layer.width * class_count_);            // 80 x 80
         const int coord_per_row = (layer.width * layer.coord_fmap_size);  // 80 x 64
+        const int mask_per_row = (layer.width * layer.mask_fmap_size);    // 80 x 32
 
-        const int conf_id = layer.conf_port;
-        const int coord_id = layer.coord_port;
+        float* conf_base = outputs.at(layer.conf_port);
+        float* coord_base = outputs.at(layer.coord_port);
+        float* mask_coef_base = outputs.at(layer.mask_coef_port);
 
-        float* conf_base = outputs.at(conf_id);
-        float* coord_base = outputs.at(coord_id);
-
-        if (!conf_base || !coord_base) {
+        if (!conf_base || !coord_base || !mask_coef_base) {
             throw std::invalid_argument("One or more output buffers are null.");
         }
 
