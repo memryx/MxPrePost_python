@@ -32,17 +32,12 @@ namespace MX {
                 size_t coord_fmap_size;
             };
 
-            bool _is_horizontal_input(int ori_width, int ori_height);
-            std::vector<int> _nms(const std::vector<BBox>& boxes, float iou_thres);
             void _get_detection(std::vector<BBox>& boxes,
                                 int layer_id,
                                 float* conf_buffer,
                                 float* coord_buffer,
                                 int row,
                                 int col);
-
-            void _draw_bbox(cv::Mat& image, const BBox& bbox);
-            float _calc_iou(const BBox& bbox_0, const BBox& bbox_1);
 
             float _conf_to_fastSigmoid_inputVal(float conf);
 

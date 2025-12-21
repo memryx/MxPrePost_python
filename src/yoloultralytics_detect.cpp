@@ -1,190 +1,14 @@
 #include "yoloultralytics_detect.h"
 
-#include <algorithm>
-#include <numeric>
+#include "utils.h"
 
 using namespace MX::Pipe;
-
-#define FONT (cv::FONT_ITALIC)
-#define COCO_CLASS_NUMBER (80)
 
 #define mxutil_prepost_sigmoid(_x_)                                                               \
     (1.0 / (1.0 + expf(-1.0 * (_x_))))  // sigmoid: f(x) = 1 / (1 + e^(-x))
 #define mxutil_prepost_sigmoid_fast_sigmoid(_x_)                                                  \
     ((_x_) /                                                                                      \
      (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_))))  // fast-sigmoid: f(x) = x / (1 + abs(x))
-#define mxutil_max(_x_, _y_) (((_x_) > (_y_)) ? (_x_) : (_y_))
-#define mxutil_min(_x_, _y_) (((_x_) < (_y_)) ? (_x_) : (_y_))
-
-static const std::vector<cv::Scalar> COCO_TEXT_COLORS = {
-        {0, 0, 0},
-        {255, 255, 255},
-        {255, 255, 255},
-        {255, 255, 255},
-        {255, 215, 0},
-};
-
-static const std::vector<cv::Scalar> COCO_BOX_COLORS = {
-        {255, 255, 0, 0.6},
-        {26, 35, 126, 0.6},
-        {255, 50, 50, 0.6},
-        {0, 0, 0, 0.6},
-        {51, 51, 51, 0.6},
-};
-
-/**
- * @brief Labels of COCO dataset, COCO 2014 and 2017 uses the same images but
- * different train/val/test splits. Also, COCO defines 91 classes but the data
- * only uses 80 classes.
- */
-static const char* COCO_NAMES[COCO_CLASS_NUMBER] = {
-        "person",        "bicycle",       "car",           "motorbike",
-        "aeroplane",     "bus",           "train",         "truck",
-        "boat",          "traffic light", "fire hydrant",  "stop sign",
-        "parking meter", "bench",         "bird",          "cat",
-        "dog",           "horse",         "sheep",         "cow",
-        "elephant",      "bear",          "zebra",         "giraffe",
-        "backpack",      "umbrella",      "handbag",       "tie",
-        "suitcase",      "frisbee",       "skis",          "snowboard",
-        "sports ball",   "kite",          "baseball bat",  "baseball glove",
-        "skateboard",    "surfboard",     "tennis racket", "bottle",
-        "wine glass",    "cup",           "fork",          "knife",
-        "spoon",         "bowl",          "banana",        "apple",
-        "sandwich",      "orange",        "broccoli",      "carrot",
-        "hot dog",       "pizza",         "donut",         "cake",
-        "chair",         "sofa",          "pottedplant",   "bed",
-        "diningtable",   "toilet",        "tvmonitor",     "laptop",
-        "mouse",         "remote",        "keyboard",      "cell phone",
-        "microwave",     "oven",          "toaster",       "sink",
-        "refrigerator",  "book",          "clock",         "vase",
-        "scissors",      "teddy bear",    "hair drier",    "toothbrush",
-};
-
-float YoloUltralyticsDetect::_calc_iou(const BBox& bbox_0, const BBox& bbox_1) {
-    float y_min = mxutil_max(bbox_0.y_min, bbox_1.y_min);
-    float x_min = mxutil_max(bbox_0.x_min, bbox_1.x_min);
-    float y_max = mxutil_min(bbox_0.y_max, bbox_1.y_max);
-    float x_max = mxutil_min(bbox_0.x_max, bbox_1.x_max);
-    float intersection_area = mxutil_max(0, (y_max - y_min)) * mxutil_max(0, (x_max - x_min));
-    float bbox_0_area = (bbox_0.y_max - bbox_0.y_min) * (bbox_0.x_max - bbox_0.x_min);
-    float bbox_1_area = (bbox_1.y_max - bbox_1.y_min) * (bbox_1.x_max - bbox_1.x_min);
-    float union_area = bbox_0_area + bbox_1_area - intersection_area;
-    return intersection_area / union_area;
-}
-
-std::vector<int> YoloUltralyticsDetect::_nms(const std::vector<BBox>& boxes, float iou_thres) {
-    if (boxes.empty())
-        return {};
-
-    const int n = boxes.size();
-
-    // 1. Pre-calculate areas to avoid redundant math in the IoU loop
-    std::vector<float> areas(n);
-    for (int i = 0; i < n; ++i) {
-        areas[i] = (boxes[i].x_max - boxes[i].x_min) * (boxes[i].y_max - boxes[i].y_min);
-    }
-
-    // 2. Sort indices based on conf scores
-    // We sort indices so we never move the actual BBox structs in memory
-    std::vector<int> indices(n);
-    std::iota(indices.begin(), indices.end(), 0);
-    std::sort(indices.begin(), indices.end(), [&](int i, int j) {
-        return boxes[i].conf > boxes[j].conf;
-    });
-
-    // 3. Bitset-style suppression for efficiency
-    std::vector<int> suppressed(n, 0);
-    std::vector<int> keep;
-    keep.reserve(n);  // Pre-allocate memory
-
-    for (int i = 0; i < n; ++i) {
-        int idx_i = indices[i];
-        if (suppressed[idx_i])
-            continue;
-
-        keep.push_back(idx_i);
-
-        for (int j = i + 1; j < n; ++j) {
-            int idx_j = indices[j];
-            if (suppressed[idx_j])
-                continue;
-
-            // Manual IoU inline for speed
-            float inter_x_min = std::max(boxes[idx_i].x_min, boxes[idx_j].x_min);
-            float inter_y_min = std::max(boxes[idx_i].y_min, boxes[idx_j].y_min);
-            float inter_x_max = std::min(boxes[idx_i].x_max, boxes[idx_j].x_max);
-            float inter_y_max = std::min(boxes[idx_i].y_max, boxes[idx_j].y_max);
-
-            float inter_w = std::max(0.0f, inter_x_max - inter_x_min);
-            float inter_h = std::max(0.0f, inter_y_max - inter_y_min);
-            float inter_area = inter_w * inter_h;
-
-            if (inter_area <= 0)
-                continue;
-
-            float iou = inter_area / (areas[idx_i] + areas[idx_j] - inter_area);
-
-            if (iou > iou_thres) {
-                suppressed[idx_j] = 1;
-            }
-        }
-    }
-
-    return keep;
-}
-
-void YoloUltralyticsDetect::_draw_bbox(cv::Mat& image, const BBox& bbox) {
-
-    int x_min = (int)bbox.x_min;
-    int y_min = (int)bbox.y_min;
-    int x_max = (int)bbox.x_max;
-    int y_max = (int)bbox.y_max;
-    int cls_id = bbox.cls_id;
-    float conf = bbox.conf;
-    cv::Scalar box_color = bounding_box_colors_[cls_id];
-    cv::Scalar text_color = class_label_colors_[cls_id];
-
-    double font_scale = ((double)image.rows / 640.0);
-    double bbox_thickness = font_scale * 3;
-    double font_thickness = font_scale * 2;
-    cv::Size text_size;
-    int baseline;
-    char text[64];
-
-    /* bounding box rectangle line */
-    cv::rectangle(image,
-                  cv::Point(x_min, y_min) /*top left*/,
-                  cv::Point(x_max, y_max) /*bottom right*/,
-                  box_color,
-                  bbox_thickness,
-                  cv::LINE_4);
-
-    sprintf(text, "%s(%.f%%)", bbox.cls_name.c_str(), 100 * conf);
-
-    text_size = cv::getTextSize(text, FONT, 2 * font_scale, bbox_thickness, &baseline);
-
-    /* label background rectangle */
-    cv::rectangle(image,
-                  cv::Rect(x_min,
-                           mxutil_max(0, y_min - text_size.height),
-                           text_size.width * 0.5,
-                           text_size.height),  // top left, width, height
-                  box_color,
-                  cv::FILLED);
-
-    /* label text */
-    cv::putText(image,
-                text,
-                cv::Point(x_min,
-                          mxutil_max(0, y_min - text_size.height) == 0
-                                  ? text_size.height - 5
-                                  : y_min - 10 * font_scale),  // bottom left
-                FONT,
-                font_scale,
-                text_color,
-                font_thickness,
-                cv::LINE_AA);
-}
 
 YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     class_labels_ = COCO_NAMES;
@@ -198,7 +22,7 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
 
     // compute padding
     // TODO: support vertical images as well
-    if (!_is_horizontal_input(config.ori_width, config.ori_height))
+    if (!MX::Pipe::Util::is_horizontal_input(config.ori_width, config.ori_height))
         return;
 
     ori_w_ = config.ori_width;
@@ -214,14 +38,6 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
 
     // convert conf thres to fast-sigmoid input value
     conf_thres_fastSigmoid_ = _conf_to_fastSigmoid_inputVal(conf_thres_);
-
-    // set label and bbox color
-    for (size_t i = 0; i < class_count_; i++) {
-        cv::Scalar label_color = COCO_TEXT_COLORS[i % color_size];
-        cv::Scalar bbox_color = COCO_BOX_COLORS[i % color_size];
-        class_label_colors_.push_back(label_color);
-        bounding_box_colors_.push_back(bbox_color);
-    }
 
     yolo_post_layers_[0] = {
             .coord_port = 0,
@@ -251,39 +67,13 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     };
 }
 
-bool YoloUltralyticsDetect::_is_horizontal_input(int ori_w, int ori_h) {
-    if (ori_h > ori_w) {
-        printf("Invalid display image: only horizontal images are supported.\n");
-        return false;
-    }
-    return true;
-}
-
 cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
-
-    // Resize keeping aspect ratio
-    cv::Mat resized;
-    cv::resize(image, resized, cv::Size(letterbox_w_, letterbox_h_), 0, 0, cv::INTER_LINEAR);
-
-    // Apply letterbox pad (black border)
-    cv::Mat padded;
-    cv::copyMakeBorder(resized,
-                       padded,
-                       pad_h_,  // top,
-                       pad_h_,  // bottom
-                       pad_w_,  // left
-                       pad_w_,  // right
-                       cv::BORDER_CONSTANT,
-                       cv::Scalar(0, 0, 0));
-
-    // Convert to float and normalize (0–1)
-    padded.convertTo(padded, CV_32F, 1.0 / 255.0);
-    return padded;  // shape: (640, 640, 3), range [0,1]
+    return MX::Pipe::Util::preprocess(image, letterbox_w_, letterbox_h_, pad_w_, pad_h_);
 }
 
 void YoloUltralyticsDetect::draw(cv::Mat& image, const Result& result) {
     for (const BBox& bbox : result.boxes) {
-        _draw_bbox(image, bbox);
+        MX::Pipe::Util::draw_bbox(image, bbox);
     }
 }
 
@@ -377,10 +167,10 @@ void YoloUltralyticsDetect::_get_detection(std::vector<BBox>& boxes,
     h = (feature_value[3] + feature_value[1]) * yolo_post_layers_[layer_id].ratio;
 
     // coord on padded image
-    float min_x = mxutil_max(center_x - 0.5 * w, .0);
-    float min_y = mxutil_max(center_y - 0.5 * h, .0);
-    float max_x = mxutil_min(center_x + 0.5 * w, model_w_);
-    float max_y = mxutil_min(center_y + 0.5 * h, model_h_);
+    float min_x = std::max(center_x - 0.5f * w, 0.0f);
+    float min_y = std::max(center_y - 0.5f * h, 0.0f);
+    float max_x = std::min(center_x + 0.5f * w, (float)model_w_);
+    float max_y = std::min(center_y + 0.5f * h, (float)model_h_);
 
     // convert to raw bbox coords
     min_x = static_cast<int>((min_x - pad_w_) / letterbox_ratio_);
@@ -393,10 +183,6 @@ void YoloUltralyticsDetect::_get_detection(std::vector<BBox>& boxes,
 }
 
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
-
-    // TODO: filter bboxes
-
-    // TODO: decode coord
 
     std::vector<BBox> all_boxes;
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
@@ -429,9 +215,8 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
         }
     }
 
-    // TODO: should not provide all boxes to NMS, filter by class and conf first
     // apply NMS
-    std::vector<int> keep_indices = _nms(all_boxes, iou_thres_);
+    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, iou_thres_);
 
     result.boxes.reserve(keep_indices.size());
     for (int idx : keep_indices) {
