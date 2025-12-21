@@ -57,7 +57,7 @@ namespace MX {
         };
 
         struct Result {
-            std::list<BBox> boxes;
+            std::vector<BBox> boxes;
             std::list<std::vector<float>> masks;
             std::vector<std::vector<std::pair<float, float>>> keypoints;
         };

@@ -41,8 +41,8 @@ class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
     };
 
     bool _is_horizontal_input(int ori_width, int ori_height);
-    void _nms(std::list<BBox>& boxes, const BBox& candidate, float iou);
-    void _get_detection(std::list<BBox>& boxes,
+    std::vector<int> _nms(const std::vector<BBox>& boxes, float iou_thres);
+    void _get_detection(std::vector<BBox>& boxes,
                         int layer_id,
                         float* conf_buffer,
                         float* coord_buffer,

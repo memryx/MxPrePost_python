@@ -1,5 +1,8 @@
 #include "yoloultralytics_detect.h"
 
+#include <algorithm>
+#include <numeric>
+
 #define FONT (cv::FONT_ITALIC)
 #define COCO_CLASS_NUMBER (80)
 
@@ -59,31 +62,65 @@ float YoloUltralyticsDetect::_calc_iou(const BBox& bbox_0, const BBox& bbox_1) {
     return intersection_area / union_area;
 }
 
-void YoloUltralyticsDetect::_nms(std::list<BBox>& boxes, const BBox& candidate, float iou_thresh) {
-    bool candidate_survives = true;
+std::vector<int> YoloUltralyticsDetect::_nms(const std::vector<BBox>& boxes, float iou_thres) {
+    if (boxes.empty())
+        return {};
 
-    for (auto it = boxes.begin(); it != boxes.end();) {
-        float iou = _calc_iou(*it, candidate);
+    const int n = boxes.size();
 
-        if (iou > iou_thresh) {
-            if (it->conf >= candidate.conf) {
-                // Existing box suppresses candidate → stop early
-                candidate_survives = false;
-                break;
-            } else {
-                // Candidate suppresses existing box
-                it = boxes.erase(it);  // safe: returns next iterator
+    // 1. Pre-calculate areas to avoid redundant math in the IoU loop
+    std::vector<float> areas(n);
+    for (int i = 0; i < n; ++i) {
+        areas[i] = (boxes[i].x_max - boxes[i].x_min) * (boxes[i].y_max - boxes[i].y_min);
+    }
+
+    // 2. Sort indices based on conf scores
+    // We sort indices so we never move the actual BBox structs in memory
+    std::vector<int> indices(n);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::sort(indices.begin(), indices.end(), [&](int i, int j) {
+        return boxes[i].conf > boxes[j].conf;
+    });
+
+    // 3. Bitset-style suppression for efficiency
+    std::vector<int> suppressed(n, 0);
+    std::vector<int> keep;
+    keep.reserve(n);  // Pre-allocate memory
+
+    for (int i = 0; i < n; ++i) {
+        int idx_i = indices[i];
+        if (suppressed[idx_i])
+            continue;
+
+        keep.push_back(idx_i);
+
+        for (int j = i + 1; j < n; ++j) {
+            int idx_j = indices[j];
+            if (suppressed[idx_j])
                 continue;
+
+            // Manual IoU inline for speed
+            float inter_x_min = std::max(boxes[idx_i].x_min, boxes[idx_j].x_min);
+            float inter_y_min = std::max(boxes[idx_i].y_min, boxes[idx_j].y_min);
+            float inter_x_max = std::min(boxes[idx_i].x_max, boxes[idx_j].x_max);
+            float inter_y_max = std::min(boxes[idx_i].y_max, boxes[idx_j].y_max);
+
+            float inter_w = std::max(0.0f, inter_x_max - inter_x_min);
+            float inter_h = std::max(0.0f, inter_y_max - inter_y_min);
+            float inter_area = inter_w * inter_h;
+
+            if (inter_area <= 0)
+                continue;
+
+            float iou = inter_area / (areas[idx_i] + areas[idx_j] - inter_area);
+
+            if (iou > iou_thres) {
+                suppressed[idx_j] = 1;
             }
         }
-
-        ++it;
     }
 
-    // Add candidate if it wasn't suppressed
-    if (candidate_survives) {
-        boxes.push_back(candidate);
-    }
+    return keep;
 }
 
 void YoloUltralyticsDetect::_draw_bbox(cv::Mat& image, const BBox& bbox) {
@@ -251,7 +288,7 @@ float YoloUltralyticsDetect::_conf_to_fastSigmoid_inputVal(float conf) {
     return x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
 }
 
-void YoloUltralyticsDetect::_get_detection(std::list<BBox>& boxes,
+void YoloUltralyticsDetect::_get_detection(std::vector<BBox>& boxes,
                                            int layer_id,
                                            float* conf_cell_buf,
                                            float* coord_cell_buf,
@@ -342,9 +379,7 @@ void YoloUltralyticsDetect::_get_detection(std::list<BBox>& boxes,
     max_y = static_cast<int>((max_y - pad_h_) / letterbox_ratio_);
 
     BBox bbox(min_x, min_y, max_x, max_y, best_label_score, best_label, COCO_NAMES[best_label]);
-
-    // apply NMS
-    _nms(boxes, bbox, iou_thres_);
+    boxes.push_back(bbox);
 }
 
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
@@ -353,6 +388,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
         throw std::invalid_argument("outputs cannot be null.");
     }
 
+    std::vector<BBox> all_boxes;
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
 
         // get layer params
@@ -378,8 +414,16 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
             for (size_t col = 0; col < layer.width; col++) {
                 float* conf_cell_buf = conf_row_buf + col * class_count_;
                 float* coord_cell_buf = coord_row_buf + col * layer.coord_fmap_size;
-                _get_detection(result.boxes, layer_id, conf_cell_buf, coord_cell_buf, row, col);
+                _get_detection(all_boxes, layer_id, conf_cell_buf, coord_cell_buf, row, col);
             }
         }
+    }
+
+    // apply NMS
+    std::vector<int> keep_indices = _nms(all_boxes, iou_thres_);
+
+    result.boxes.reserve(keep_indices.size());
+    for (int idx : keep_indices) {
+        result.boxes.push_back(all_boxes[idx]);
     }
 }
