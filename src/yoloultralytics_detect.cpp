@@ -1,7 +1,34 @@
 #include "yoloultralytics_detect.h"
+#include <Eigen/Dense>
 
 #include <algorithm>
 #include <numeric>
+
+// ===== utils for Eigen matrix concatenation =====
+
+using RowMatrix = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+Eigen::MatrixXf concat_boxes(const Eigen::MatrixXf& lbox,
+                             const Eigen::MatrixXf& mbox,
+                             const Eigen::MatrixXf& sbox) {
+
+    // 1. Calculate total rows (N1 + N2 + N3)
+    long total_rows = lbox.rows() + mbox.rows() + sbox.rows();
+    int cols = 64;  // Fixed based on your snippet
+
+    // 2. Pre-allocate the large matrix
+    RowMatrix boxes(total_rows, cols);
+
+    // 3. Fill the matrix using block operations
+    // block(start_row, start_col, num_rows, num_cols)
+    boxes.block(0, 0, lbox.rows(), cols) = lbox;
+    boxes.block(lbox.rows(), 0, mbox.rows(), cols) = mbox;
+    boxes.block(lbox.rows() + mbox.rows(), 0, sbox.rows(), cols) = sbox;
+
+    return boxes;
+}
+
+// ============================================================================
 
 #define FONT (cv::FONT_ITALIC)
 #define COCO_CLASS_NUMBER (80)
@@ -384,9 +411,9 @@ void YoloUltralyticsDetect::_get_detection(std::vector<BBox>& boxes,
 
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
 
-    if (outputs.empty()) {
-        throw std::invalid_argument("outputs cannot be null.");
-    }
+    // TODO: filter bboxes
+
+    // TODO: decode coord
 
     std::vector<BBox> all_boxes;
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
@@ -419,6 +446,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
         }
     }
 
+    // TODO: should not provide all boxes to NMS, filter by class and conf first
     // apply NMS
     std::vector<int> keep_indices = _nms(all_boxes, iou_thres_);
 
