@@ -1,37 +1,20 @@
 #include "yoloultralytics_detect.h"
-#include <Eigen/Dense>
 
 #include <algorithm>
 #include <numeric>
 
-// ===== utils for Eigen matrix concatenation =====
-
-using RowMatrix = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
-Eigen::MatrixXf concat_boxes(const Eigen::MatrixXf& lbox,
-                             const Eigen::MatrixXf& mbox,
-                             const Eigen::MatrixXf& sbox) {
-
-    // 1. Calculate total rows (N1 + N2 + N3)
-    long total_rows = lbox.rows() + mbox.rows() + sbox.rows();
-    int cols = 64;  // Fixed based on your snippet
-
-    // 2. Pre-allocate the large matrix
-    RowMatrix boxes(total_rows, cols);
-
-    // 3. Fill the matrix using block operations
-    // block(start_row, start_col, num_rows, num_cols)
-    boxes.block(0, 0, lbox.rows(), cols) = lbox;
-    boxes.block(lbox.rows(), 0, mbox.rows(), cols) = mbox;
-    boxes.block(lbox.rows() + mbox.rows(), 0, sbox.rows(), cols) = sbox;
-
-    return boxes;
-}
-
-// ============================================================================
+using namespace MX::Pipe;
 
 #define FONT (cv::FONT_ITALIC)
 #define COCO_CLASS_NUMBER (80)
+
+#define mxutil_prepost_sigmoid(_x_)                                                               \
+    (1.0 / (1.0 + expf(-1.0 * (_x_))))  // sigmoid: f(x) = 1 / (1 + e^(-x))
+#define mxutil_prepost_sigmoid_fast_sigmoid(_x_)                                                  \
+    ((_x_) /                                                                                      \
+     (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_))))  // fast-sigmoid: f(x) = x / (1 + abs(x))
+#define mxutil_max(_x_, _y_) (((_x_) > (_y_)) ? (_x_) : (_y_))
+#define mxutil_min(_x_, _y_) (((_x_) < (_y_)) ? (_x_) : (_y_))
 
 static const std::vector<cv::Scalar> COCO_TEXT_COLORS = {
         {0, 0, 0},
