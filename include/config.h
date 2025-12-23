@@ -2,12 +2,11 @@
 #include <array>
 #include <iostream>
 #include <list>
+#include <opencv2/opencv.hpp> /* imshow */
 #include <queue>
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-#include <opencv2/opencv.hpp>    /* imshow */
 
 namespace MX {
     namespace Pipe {
@@ -103,9 +102,19 @@ namespace MX {
             }
         };
 
+        struct Point {
+            int x;
+            int y;
+        };
+
+        struct Mask {
+            std::vector<Point> points;
+            int cls_id;
+        };
+
         struct Result {
             std::vector<BBox> boxes;
-            std::list<std::vector<float>> masks;
+            std::vector<Mask> masks;
             std::vector<std::vector<std::pair<float, float>>> keypoints;
         };
 
