@@ -8,6 +8,11 @@
 #include <opencv2/imgproc.hpp>   /* cvtcolor */
 #include <opencv2/opencv.hpp>    /* imshow */
 
+// forward declaration
+namespace MX::Pipe::Util {
+    class ScoreManager;
+}
+
 namespace MX {
     namespace Pipe {
         class YoloUltralyticsDetect : public MX::Pipe::Pipeline {
@@ -39,8 +44,6 @@ namespace MX {
                                    int row,
                                    int col);
 
-            float _conf_to_fastSigmoid_inputVal(float conf);
-
             static constexpr size_t kNumPostProcessLayers = 3;
             struct LayerParams yolo_post_layers_[kNumPostProcessLayers];
 
@@ -59,7 +62,7 @@ namespace MX {
             float conf_thres_;
             float iou_thres_;
             std::vector<int> valid_classes_;
-            float conf_thres_fastSigmoid_;  // Converted conf threshold for fast-sigmoid
+            MX::Pipe::Util::ScoreManager* smgr_;
 
             // Letterbox ratio and pad.
             float letterbox_ratio_;

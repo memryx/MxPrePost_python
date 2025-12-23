@@ -10,6 +10,42 @@ namespace MX::Pipe::Util {
 
     using namespace MX::Pipe;
 
+    // TODO: comment more clearly
+    struct ScoreManager {
+        bool fast_sigmoid;
+        float raw_thres;
+        float thres_before_sigmoid;
+
+        ScoreManager(float raw_thres, bool fast_sigmoid) :
+            raw_thres(raw_thres), fast_sigmoid(fast_sigmoid) {
+
+            if (fast_sigmoid) {
+                // Converts a score value in [0,1] to the corresponding input for the fast-sigmoid
+                // function. The fast-sigmoid function: f(x) = x / (1 + |x|), which maps [-inf,
+                // +inf] -> [-1, 1].
+                //
+                // Steps:
+                //   1. Map conf [0,1] -> x [-1,1]
+                //   2. Return x as input for fast-sigmoid
+
+                float x = raw_thres * 2.0f - 1.0f;                // map [0,1] -> [-1,1]
+                thres_before_sigmoid = x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
+            } else {
+                // x = ln(y / (1 - y))
+                thres_before_sigmoid = -logf(raw_thres / (1.0f - raw_thres));
+            }
+        }
+
+        float convert(float x) const {
+            if (fast_sigmoid) {
+                x = x / (1.0f + std::fabs(x));
+                return x = (x + 1.0f) * 0.5f;  // range (-1, 1) -> (0, 1)
+            } else {
+                return 1.0f / (1.0f + std::exp(-x));
+            }
+        }
+    };
+
     Eigen::MatrixXf concat_boxes(const Eigen::MatrixXf& lbox,
                                  const Eigen::MatrixXf& mbox,
                                  const Eigen::MatrixXf& sbox);

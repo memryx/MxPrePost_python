@@ -124,6 +124,7 @@ namespace MX {
             float conf = 0.3f;                      // [Optional] Confidence threshold
             float iou = 0.4f;                       // [Optional] IOU threshold for NMS
             std::unordered_set<int> valid_classes;  // [Optional] List of valid class names
+            bool fast_sigmoid = false;              // [Optional] Use fast sigmoid or not
         };
     }
 }

@@ -4,19 +4,12 @@
 
 using namespace MX::Pipe;
 
-#define mxutil_prepost_sigmoid(_x_)                                                               \
-    (1.0 / (1.0 + expf(-1.0 * (_x_))))  // sigmoid: f(x) = 1 / (1 + e^(-x))
-#define mxutil_prepost_sigmoid_fast_sigmoid(_x_)                                                  \
-    ((_x_) /                                                                                      \
-     (((_x_) < 0) ? (1.0 - (_x_)) : (1.0 + (_x_))))  // fast-sigmoid: f(x) = x / (1 + abs(x))
-
 YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     class_labels_ = COCO_NAMES;
     class_count_ = COCO_CLASS_NUMBER;
     int color_size = COCO_TEXT_COLORS.size();
 
     // init settings from config
-    conf_thres_ = config.conf;
     iou_thres_ = config.iou;
 
     if (config.valid_classes.empty()) {
@@ -47,8 +40,8 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     pad_w_ = (model_w_ - letterbox_w_) / 2;
     pad_h_ = (model_h_ - letterbox_h_) / 2;
 
-    // convert conf thres to fast-sigmoid input value
-    conf_thres_fastSigmoid_ = _conf_to_fastSigmoid_inputVal(conf_thres_);
+    // init score manager
+    smgr_ = new MX::Pipe::Util::ScoreManager(config.conf, config.fast_sigmoid);
 
     yolo_post_layers_[0] = {
             .coord_port = 0,
@@ -88,17 +81,6 @@ void YoloUltralyticsDetect::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-float YoloUltralyticsDetect::_conf_to_fastSigmoid_inputVal(float conf) {
-    // Converts a conf value in [0,1] to the corresponding input for the fast-sigmoid
-    // function. The fast-sigmoid function: f(x) = x / (1 + |x|), which maps [-inf, +inf] -> [-1,
-    // 1]. Steps:
-    //   1. Map conf [0,1] -> x [-1,1]
-    //   2. Return x as input for fast-sigmoid
-
-    float x = conf * 2.0f - 1.0f;     // map [0,1] -> [-1,1]
-    return x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
-}
-
 void YoloUltralyticsDetect::_gather_candidate(std::vector<BBox>& boxes,
                                               int layer_id,
                                               float* conf_cell_buf,
@@ -108,16 +90,13 @@ void YoloUltralyticsDetect::_gather_candidate(std::vector<BBox>& boxes,
 
     float best_score;
     int best_label = MX::Pipe::Util::get_best_label(
-            best_score, conf_cell_buf, valid_classes_, conf_thres_fastSigmoid_);
+            best_score, conf_cell_buf, valid_classes_, smgr_->thres_before_sigmoid);
 
     if (best_label == -1)
         return;
 
-    // NOTE: Be aware of the range of fast_signoid: (-1, 1).
-    best_score = mxutil_prepost_sigmoid_fast_sigmoid(best_score);
-
-    // range (-1, 1) -> (0, 1), need to convert, because conf_thresh is based on range(0, 1)
-    best_score = (best_score + 1.0f) * 0.5f;
+    // get best score in [0,1]
+    best_score = smgr_->convert(best_score);
 
     std::vector<float> feature_value;
 

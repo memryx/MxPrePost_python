@@ -63,15 +63,17 @@ class BindPipeline {
     BindPipeline(const std::string& task,
                  int ori_width,
                  int ori_height,
-                 float conf = 0.3,
-                 float iou = 0.4,
-                 std::vector<int> valid_classes = {}) {
+                 float conf,
+                 float iou,
+                 std::vector<int> valid_classes,
+                 bool fast_sigmoid) {
 
         YoloConfig config;
         config.ori_width = ori_width;
         config.ori_height = ori_height;
         config.conf = conf;
         config.iou = iou;
+        config.fast_sigmoid = fast_sigmoid;
 
         // convert valid_classes vector to unordered_set
         for (const auto& cls : valid_classes) {
@@ -160,13 +162,14 @@ PYBIND11_MODULE(mxpipe, m) {
 
     // Pipeline class
     py::class_<BindPipeline>(m, "Pipeline")
-            .def(py::init<std::string, int, int, float, float, std::vector<int>>(),
+            .def(py::init<std::string, int, int, float, float, std::vector<int>, bool>(),
                  py::arg("task"),
                  py::arg("ori_width"),
                  py::arg("ori_height"),
-                 py::arg("conf"),
-                 py::arg("iou"),
-                 py::arg("valid_classes"))
+                 py::arg("conf") = 0.3,
+                 py::arg("iou") = 0.4,
+                 py::arg("valid_classes") = py::list(),
+                 py::arg("fast_sigmoid") = false)
             .def("draw", &BindPipeline::draw)
             .def("preprocess", &BindPipeline::preprocess)
             .def("postprocess", &BindPipeline::postprocess);
