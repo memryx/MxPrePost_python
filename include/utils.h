@@ -43,4 +43,9 @@ namespace MX::Pipe::Util {
     preprocess(const cv::Mat& image, int letterbox_w, int letterbox_h, int pad_w, int pad_h);
 
     void draw_mask(cv::Mat& image, const Mask& mask, float alpha = 0.3f);
+
+    int get_best_label(float& best_score,
+                       float* score_buf,
+                       const std::vector<int>& valid_classes,
+                       float score_thres);
 }

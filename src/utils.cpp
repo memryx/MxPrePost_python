@@ -209,4 +209,31 @@ namespace MX::Pipe::Util {
         // Blend the overlay with the original image
         cv::addWeighted(overlay, alpha, image, 1.0 - alpha, 0, image);
     }
+
+    int get_best_label(float& best_score,
+                       float* score_buf,
+                       const std::vector<int>& valid_classes,
+                       float score_thres) {
+
+        best_score = -1.f;
+        int best_label = -1;
+
+        // loop through valid classes only
+        for (int label : valid_classes) {
+
+            float score = score_buf[label];
+            if (score <= score_thres)
+                continue;
+
+            if (score <= best_score)
+                continue;
+
+            // update
+            best_score = score;
+            best_label = label;
+        }
+
+        // no best label found if label == -1
+        return best_label;
+    }
 }

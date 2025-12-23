@@ -75,6 +75,7 @@ cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
 }
 
 void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
+    // TODO: imrpove drawing by adding bbox + label together with mask
     for (const Mask& mask : result.masks) {
         MX::Pipe::Util::draw_mask(image, mask);
     }
@@ -91,14 +92,14 @@ float YoloUltralyticsSegment::_conf_to_fastSigmoid_inputVal(float conf) {
     return x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
 }
 
-void YoloUltralyticsSegment::_get_detection(std::vector<BBox>& boxes,
-                                            std::vector<float*>& all_mask_coefs,
-                                            int layer_id,
-                                            float* conf_cell_buf,
-                                            float* coord_cell_buf,
-                                            float* mask_row_buf,
-                                            int row,
-                                            int col) {
+void YoloUltralyticsSegment::_gather_candidate(std::vector<BBox>& boxes,
+                                               std::vector<float*>& all_mask_coefs,
+                                               int layer_id,
+                                               float* conf_cell_buf,
+                                               float* coord_cell_buf,
+                                               float* mask_row_buf,
+                                               int row,
+                                               int col) {
     // process conf score
     float best_label_score = conf_cell_buf[0] - 1.f;  // arbitrary small number
     int best_label = -1;
@@ -187,117 +188,85 @@ void YoloUltralyticsSegment::_get_detection(std::vector<BBox>& boxes,
     boxes.push_back(bbox);
 
     // add mask coef pointer
-    const int mask_fmap_size = 32;
-    all_mask_coefs.push_back(mask_row_buf + col * mask_fmap_size);
+    all_mask_coefs.push_back(mask_row_buf + col * mask_fmap_size_);
 }
 
 void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Result& result) {
 
-    using RowMatrix = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
-    const int mask_fmap_size = 32;
     std::vector<BBox> all_boxes;
     std::vector<float*> all_mask_coefs;
+
+    // Candidate Gathering
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
-
-        // get layer params
         const auto& layer = yolo_post_layers_[layer_id];
-        const int conf_per_row = (layer.width * class_count_);            // 80 x 80
-        const int coord_per_row = (layer.width * layer.coord_fmap_size);  // 80 x 64
-        const int mask_coef_per_row = (layer.width * mask_fmap_size);     // 80 x 32
+        float* conf_base = outputs.at(layer.conf_port);
+        float* coord_base = outputs.at(layer.coord_port);
+        float* mask_coef_base = outputs.at(layer.mask_coef_port);
 
-        const int conf_id = layer.conf_port;
-        const int coord_id = layer.coord_port;
-        const int mask_coef_id = layer.mask_coef_port;
-
-        float* conf_base = outputs.at(conf_id);
-        float* coord_base = outputs.at(coord_id);
-        float* mask_coef_base = outputs.at(mask_coef_id);
-
-        if (!conf_base || !coord_base) {
-            throw std::invalid_argument("One or more output buffers are null.");
-        }
-
-        // iterate each cell
-        for (size_t row = 0; row < layer.height; row++) {
-            float* conf_row_buf = conf_base + row * conf_per_row;
-            float* coord_row_buf = coord_base + row * coord_per_row;
-            float* mask_coef_row_buf = mask_coef_base + row * mask_coef_per_row;
-
-            for (size_t col = 0; col < layer.width; col++) {
-                float* conf_cell_buf = conf_row_buf + col * class_count_;
-                float* coord_cell_buf = coord_row_buf + col * layer.coord_fmap_size;
-                _get_detection(all_boxes,
-                               all_mask_coefs,
-                               layer_id,
-                               conf_cell_buf,
-                               coord_cell_buf,
-                               mask_coef_row_buf,
-                               row,
-                               col);
-            }
+        for (size_t i = 0; i < layer.height * layer.width; ++i) {
+            _gather_candidate(all_boxes,
+                              all_mask_coefs,
+                              layer_id,
+                              conf_base + i * class_count_,
+                              coord_base + i * layer.coord_fmap_size,
+                              mask_coef_base + i * mask_fmap_size_,
+                              i / layer.width /* row */,
+                              i % layer.width /* col */);
         }
     }
 
-    // apply NMS
+    // apply NMS & early exit
     std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, iou_thres_);
-
-    // early stop if no boxes kept
-    if (keep_indices.empty())
+    int num_keep = static_cast<int>(keep_indices.size());
+    if (num_keep == 0)
         return;
 
-    int num_filtered = static_cast<int>(keep_indices.size());
+    // declare mask_coefs_mat
+    using RowMatrix = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    RowMatrix mask_coefs_mat(mask_fmap_size_, num_keep);
 
-    // gather final result
-    result.boxes.reserve(keep_indices.size());
-
-    std::vector<float*> filtered_mask_coefs;
-    filtered_mask_coefs.reserve(keep_indices.size());
-    for (int idx : keep_indices) {
-        result.boxes.push_back(all_boxes[idx]);
-        filtered_mask_coefs.push_back(all_mask_coefs[idx]);
+    // keep only the selected boxes and mask coefficients
+    for (size_t i = 0; i < num_keep; ++i) {
+        mask_coefs_mat.col(i) =
+                Eigen::Map<Eigen::VectorXf>(all_mask_coefs[keep_indices[i]], mask_fmap_size_);
+        result.boxes.push_back(all_boxes[keep_indices[i]]);
     }
 
-    // (160 * 160, 32)
-    const int mask_w = 160;
-    const int mask_h = 160;
-    Eigen::Map<const RowMatrix> mask_proto(outputs[2], mask_h * mask_w, mask_fmap_size);
+    // Mask Generation via Eigen to speed up (MatMul)
+    // Proto: (160*160, 32), Coefs: (32, N)
+    Eigen::Map<const RowMatrix> mask_proto(outputs[2], proto_h_ * proto_w_, mask_fmap_size_);
+    RowMatrix raw_masks = mask_proto * mask_coefs_mat;  // (160 * 160, N)
 
-    /* --------------------------------------------------
-     * 3. Convert filtered_mask_coefs → Eigen (32, N)
-     * -------------------------------------------------- */
-    using ColVector = Eigen::Matrix<float, Eigen::Dynamic, 1, Eigen::ColMajor>;
-    RowMatrix mask_coef(mask_fmap_size, filtered_mask_coefs.size());  // (32, N)
+    // Wrap the raw data into a 3D-aware shape (H, W, Channels)
+    cv::Mat mask_stack(proto_h_, proto_w_, CV_32FC(num_keep), (void*)raw_masks.data());
 
-    for (int i = 0; i < num_filtered; ++i) {
-        // Map the raw float* as a column
-        Eigen::Map<const ColVector> coef_col(filtered_mask_coefs[i], mask_fmap_size);
-        mask_coef.col(i) = coef_col;
-    }
-
-    // (160*160, 32) @ (32, N) -> (160*160, N)
-    RowMatrix masks_eigen = mask_proto * mask_coef;
-
-    // 1. Wrap the raw data into a 3D-aware shape (H, W, Channels)
-    // Note: num_filtered must match the number of masks in masks_eigen
-    cv::Mat mask_stack(160, 160, CV_32FC(num_filtered), (void*)masks_eigen.data());
-
-    // 2. Resize the entire stack at once
-    // OpenCV supports multi-channel resize up to 512 channels
+    // resize
     cv::Mat resized_stack;
     cv::resize(mask_stack, resized_stack, cv::Size(model_w_, model_h_), 0, 0, cv::INTER_LINEAR);
 
-    // 3. Define the ROI (Region of Interest) to remove letterbox padding
+    // Define the ROI (Region of Interest) to remove letterbox padding
     cv::Rect roi(pad_w_, pad_h_, letterbox_w_, letterbox_h_);
 
-    // 4. Crop the stack and split into individual mask matrices
+    // Crop and resize
     cv::Mat cropped_stack = resized_stack(roi);
-
     cv::Mat final_mask;
     cv::resize(cropped_stack, final_mask, cv::Size(ori_w_, ori_h_), 0, 0, cv::INTER_LINEAR);
 
+    // split
     std::vector<cv::Mat> mask_vec;
     cv::split(final_mask, mask_vec);
+
+    // TODO: Optimization:
+    // =================================
+    // - Scale the Bounding Box coordinates down to the Proto size (160 x 160).
+    // - Crop the mask proto first.
+    // - Resize only that tiny crop to the bounding box dimensions.
+    // - Run findContours on that small patch.
+    // - Approximate Polygons (cv::approxPolyDP) cv::findContours often returns hundreds of points
+    //
+    // For a single object. If you are sending these points over a network or drawing them, this is
+    // a major bottleneck. Use the Ramer-Douglas-Peucker algorithm to simplify the shapes.
+    // =================================
 
     // Assign to result.masks
     for (int i = 0; i < mask_vec.size(); ++i) {
@@ -305,12 +274,12 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         const BBox& box = result.boxes[i];
         int cls_id = box.cls_id;
 
-        // 1. Threshold the float mask to binary (0 or 255)
+        // Threshold the float mask to binary (0 or 255)
         cv::Mat binary_mask;
         cv::threshold(mask, binary_mask, 0.5, 255, cv::THRESH_BINARY);
         binary_mask.convertTo(binary_mask, CV_8U);
 
-        // 2. Create a Rect from your BBox
+        // Create a Rect from your BBox
         // Ensure coordinates are within image bounds to prevent crashes
         int x = std::max(0, (int)box.x_min);
         int y = std::max(0, (int)box.y_min);
@@ -318,15 +287,15 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         int h = std::min(binary_mask.rows - y, (int)(box.y_max - box.y_min));
         cv::Rect roi_rect(x, y, w, h);
 
-        // 3. Create a global mask and only keep the ROI area
+        // Create a global mask and only keep the ROI area
         cv::Mat roi_only_mask = cv::Mat::zeros(binary_mask.size(), binary_mask.type());
         binary_mask(roi_rect).copyTo(roi_only_mask(roi_rect));
 
-        // 4. Find contours on the clipped mask
+        // Find contours on the clipped mask
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(roi_only_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        // 3. Convert cv::Point to your custom Point struct
+        // Convert cv::Point to your custom Point struct
         for (const auto& contour : contours) {
 
             Mask mask_struct;

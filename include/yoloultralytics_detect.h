@@ -32,12 +32,12 @@ namespace MX {
                 size_t coord_fmap_size;
             };
 
-            void _get_detection(std::vector<BBox>& boxes,
-                                int layer_id,
-                                float* conf_buffer,
-                                float* coord_buffer,
-                                int row,
-                                int col);
+            void _gather_candidate(std::vector<BBox>& boxes,
+                                   int layer_id,
+                                   float* conf_buffer,
+                                   float* coord_buffer,
+                                   int row,
+                                   int col);
 
             float _conf_to_fastSigmoid_inputVal(float conf);
 
@@ -58,7 +58,7 @@ namespace MX {
             // Conf and IOU thresholds.
             float conf_thres_;
             float iou_thres_;
-            std::unordered_set<int> valid_classes_;
+            std::vector<int> valid_classes_;
             float conf_thres_fastSigmoid_;  // Converted conf threshold for fast-sigmoid
 
             // Letterbox ratio and pad.

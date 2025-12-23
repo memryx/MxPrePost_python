@@ -18,7 +18,18 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     // init settings from config
     conf_thres_ = config.conf;
     iou_thres_ = config.iou;
-    valid_classes_ = config.valid_classes;
+
+    if (config.valid_classes.empty()) {
+        // use all classes
+        for (int i = 0; i < class_count_; ++i) {
+            valid_classes_.push_back(i);
+        }
+    } else {
+        // use specified classes
+        for (int cls : config.valid_classes) {
+            valid_classes_.push_back(cls);
+        }
+    }
 
     // compute padding
     // TODO: support vertical images as well
@@ -88,46 +99,25 @@ float YoloUltralyticsDetect::_conf_to_fastSigmoid_inputVal(float conf) {
     return x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
 }
 
-void YoloUltralyticsDetect::_get_detection(std::vector<BBox>& boxes,
-                                           int layer_id,
-                                           float* conf_cell_buf,
-                                           float* coord_cell_buf,
-                                           int row,
-                                           int col) {
-    // process conf score
-    float best_label_score = conf_cell_buf[0] - 1.f;  // arbitrary small number
-    int best_label = -1;
+void YoloUltralyticsDetect::_gather_candidate(std::vector<BBox>& boxes,
+                                              int layer_id,
+                                              float* conf_cell_buf,
+                                              float* coord_cell_buf,
+                                              int row,
+                                              int col) {
 
-    // find best label
-    auto try_update = [&](int label) {
-        float score = conf_cell_buf[label];
-        if (score < conf_thres_fastSigmoid_)
-            return;
-        if (score > best_label_score) {
-            best_label_score = score;
-            best_label = label;
-        }
-    };
+    float best_score;
+    int best_label = MX::Pipe::Util::get_best_label(
+            best_score, conf_cell_buf, valid_classes_, conf_thres_fastSigmoid_);
 
-    if (valid_classes_.empty()) {
-        // loop through all classes
-        for (int label = 0; label < class_count_; ++label)
-            try_update(label);
-    } else {
-        // loop through valid classes only
-        for (int label : valid_classes_)
-            try_update(label);
-    }
-
-    // No score of detection over conf threshold
     if (best_label == -1)
         return;
 
     // NOTE: Be aware of the range of fast_signoid: (-1, 1).
-    best_label_score = mxutil_prepost_sigmoid_fast_sigmoid(best_label_score);
+    best_score = mxutil_prepost_sigmoid_fast_sigmoid(best_score);
 
     // range (-1, 1) -> (0, 1), need to convert, because conf_thresh is based on range(0, 1)
-    best_label_score = (best_label_score + 1.0f) * 0.5f;
+    best_score = (best_score + 1.0f) * 0.5f;
 
     std::vector<float> feature_value;
 
@@ -178,40 +168,26 @@ void YoloUltralyticsDetect::_get_detection(std::vector<BBox>& boxes,
     max_x = static_cast<int>((max_x - pad_w_) / letterbox_ratio_);
     max_y = static_cast<int>((max_y - pad_h_) / letterbox_ratio_);
 
-    BBox bbox(min_x, min_y, max_x, max_y, best_label_score, best_label, COCO_NAMES[best_label]);
+    BBox bbox(min_x, min_y, max_x, max_y, best_score, best_label, COCO_NAMES[best_label]);
     boxes.push_back(bbox);
 }
 
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
 
+    // Candidate Gathering
     std::vector<BBox> all_boxes;
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
-
-        // get layer params
         const auto& layer = yolo_post_layers_[layer_id];
-        const int conf_per_row = (layer.width * class_count_);            // 80 x 80
-        const int coord_per_row = (layer.width * layer.coord_fmap_size);  // 80 x 64
+        float* conf_base = outputs.at(layer.conf_port);
+        float* coord_base = outputs.at(layer.coord_port);
 
-        const int conf_id = layer.conf_port;
-        const int coord_id = layer.coord_port;
-
-        float* conf_base = outputs.at(conf_id);
-        float* coord_base = outputs.at(coord_id);
-
-        if (!conf_base || !coord_base) {
-            throw std::invalid_argument("One or more output buffers are null.");
-        }
-
-        // iterate each cell
-        for (size_t row = 0; row < layer.height; row++) {
-            float* conf_row_buf = conf_base + row * conf_per_row;
-            float* coord_row_buf = coord_base + row * coord_per_row;
-
-            for (size_t col = 0; col < layer.width; col++) {
-                float* conf_cell_buf = conf_row_buf + col * class_count_;
-                float* coord_cell_buf = coord_row_buf + col * layer.coord_fmap_size;
-                _get_detection(all_boxes, layer_id, conf_cell_buf, coord_cell_buf, row, col);
-            }
+        for (size_t i = 0; i < layer.height * layer.width; ++i) {
+            _gather_candidate(all_boxes,
+                              layer_id,
+                              conf_base + i * class_count_,
+                              coord_base + i * layer.coord_fmap_size,
+                              i / layer.width /* row */,
+                              i % layer.width /* col */);
         }
     }
 

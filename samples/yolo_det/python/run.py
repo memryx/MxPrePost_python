@@ -62,12 +62,12 @@ class YoloApp:
 
         # init MXPipe pipeline
         self.pipe = mxpipe.Pipeline(
-            task="yolov8_det",
+            task=args.task,
             ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             conf=0.3,
             iou=0.4,
-            valid_classes=[0]
+            valid_classes=[0],
         )
 
         # Start display thread
@@ -285,6 +285,14 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--old_bind", action="store_true", help="Use old binding method"
+    )
+
+    parser.add_argument(
+        "-t",
+        "--task",
+        type=str,
+        required=True,
+        help="Specify the task (e.g. 'yolov8_det' or 'yolov8_seg')",
     )
 
     args = parser.parse_args()

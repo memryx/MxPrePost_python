@@ -33,14 +33,14 @@ namespace MX {
                 size_t coord_fmap_size;
             };
 
-            void _get_detection(std::vector<BBox>& boxes,
-                                std::vector<float*>& all_mask_coefs,
-                                int layer_id,
-                                float* conf_cell_buf,
-                                float* coord_cell_buf,
-                                float* mask_row_buf,
-                                int row,
-                                int col);
+            void _gather_candidate(std::vector<BBox>& boxes,
+                                   std::vector<float*>& all_mask_coefs,
+                                   int layer_id,
+                                   float* conf_cell_buf,
+                                   float* coord_cell_buf,
+                                   float* mask_row_buf,
+                                   int row,
+                                   int col);
 
             float _conf_to_fastSigmoid_inputVal(float conf);
 
@@ -53,6 +53,9 @@ namespace MX {
             const int model_w_ = 640;  // Model input width to accelerator
             const int model_h_ = 640;  // Model input height to accelerator
             const int model_ch_ = 3;   // Model input channel to accelerator
+            const int proto_h_ = 160;  // Mask proto height
+            const int proto_w_ = 160;  // Mask proto width
+            const int mask_fmap_size_ = 32;
 
             // Colors for labels and bounding boxes.
             std::vector<cv::Scalar> class_label_colors_;
