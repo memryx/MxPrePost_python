@@ -42,5 +42,5 @@ namespace MX::Pipe::Util {
     cv::Mat
     preprocess(const cv::Mat& image, int letterbox_w, int letterbox_h, int pad_w, int pad_h);
 
-    void draw_mask(cv::Mat& image, const Mask& mask, float alpha = 0.8);
+    void draw_mask(cv::Mat& image, const Mask& mask, float alpha = 0.3f);
 }

@@ -16,7 +16,7 @@ Pipeline* Pipeline::create(const std::string& task, const YoloConfig& config) {
     } else if (task == "yolov11_det") {
         return new YoloUltralyticsDetect(config);
     } else if (task == "yolov11_seg") {
-        // return new YoloUltralyticsSegment(config);
+        return new YoloUltralyticsSegment(config);
     } else if (task == "yolov11_pose") {
         // TODO:
         return nullptr;

@@ -242,6 +242,12 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     // apply NMS
     std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, iou_thres_);
 
+    // early stop if no boxes kept
+    if (keep_indices.empty())
+        return;
+
+    int num_filtered = static_cast<int>(keep_indices.size());
+
     // gather final result
     result.boxes.reserve(keep_indices.size());
 
@@ -263,7 +269,6 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     using ColVector = Eigen::Matrix<float, Eigen::Dynamic, 1, Eigen::ColMajor>;
     RowMatrix mask_coef(mask_fmap_size, filtered_mask_coefs.size());  // (32, N)
 
-    int num_filtered = static_cast<int>(filtered_mask_coefs.size());
     for (int i = 0; i < num_filtered; ++i) {
         // Map the raw float* as a column
         Eigen::Map<const ColVector> coef_col(filtered_mask_coefs[i], mask_fmap_size);
