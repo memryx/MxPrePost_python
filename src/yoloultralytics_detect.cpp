@@ -33,12 +33,12 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     ori_h_ = config.ori_height;
 
     // letterbox params
-    letterbox_ratio_ = (float)model_w_ / ori_w_;
+    letterbox_ratio_ = (float)MX::Pipe::model_w / ori_w_;
     letterbox_w_ = ori_w_ * letterbox_ratio_;
     letterbox_h_ = ori_h_ * letterbox_ratio_;
 
-    pad_w_ = (model_w_ - letterbox_w_) / 2;
-    pad_h_ = (model_h_ - letterbox_h_) / 2;
+    pad_w_ = (MX::Pipe::model_w - letterbox_w_) / 2;
+    pad_h_ = (MX::Pipe::model_h - letterbox_h_) / 2;
 
     // init score manager
     smgr_ = new MX::Pipe::Util::ScoreManager(config.conf, config.fast_sigmoid);
@@ -46,27 +46,27 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     yolo_post_layers_[0] = {
             .coord_port = 0,
             .conf_port = 1,
-            .width = model_w_ / 8,   // L0_HW, 640 / 8 = 80
-            .height = model_h_ / 8,  // L0_HW, 640 / 8 = 80
-            .ratio = 8,
+            .width = MX::Pipe::model_w / 8,   // L0_HW, 640 / 8 = 80
+            .height = MX::Pipe::model_h / 8,  // L0_HW, 640 / 8 = 80
+            .stride = 8,
             .coord_fmap_size = 64,
     };
 
     yolo_post_layers_[1] = {
             .coord_port = 2,
             .conf_port = 3,
-            .width = model_w_ / 16,   // L1_HW, 640 / 16 = 40
-            .height = model_h_ / 16,  // L1_HW, 640 / 16 = 40
-            .ratio = 16,
+            .width = MX::Pipe::model_w / 16,   // L1_HW, 640 / 16 = 40
+            .height = MX::Pipe::model_h / 16,  // L1_HW, 640 / 16 = 40
+            .stride = 16,
             .coord_fmap_size = 64,
     };
 
     yolo_post_layers_[2] = {
             .coord_port = 4,
             .conf_port = 5,
-            .width = model_w_ / 32,   // L2_HW, 640 / 32 = 20
-            .height = model_h_ / 32,  // L2_HW, 640 / 32 = 20
-            .ratio = 32,
+            .width = MX::Pipe::model_w / 32,   // L2_HW, 640 / 32 = 20
+            .height = MX::Pipe::model_h / 32,  // L2_HW, 640 / 32 = 20
+            .stride = 32,
             .coord_fmap_size = 64,
     };
 }
@@ -81,76 +81,6 @@ void YoloUltralyticsDetect::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void YoloUltralyticsDetect::_gather_candidate(std::vector<BBox>& boxes,
-                                              int layer_id,
-                                              float* conf_cell_buf,
-                                              float* coord_cell_buf,
-                                              int row,
-                                              int col) {
-
-    float best_score;
-    int best_label = MX::Pipe::Util::get_best_label(
-            best_score, conf_cell_buf, valid_classes_, smgr_->thres_before_sigmoid);
-
-    if (best_label == -1)
-        return;
-
-    // get best score in [0,1]
-    best_score = smgr_->convert(best_score);
-
-    std::vector<float> feature_value;
-
-    for (int channel = 0; channel < 4; channel++) {  // split 64 into 4*16
-        float value = 0.0;
-        float* feature_buf = coord_cell_buf + channel * 16;
-        float softmax_sum = 0.0;
-        float local_max = feature_buf[0];
-
-        // apply softmax and weighted sum
-        for (int i = 1; i < 16; i++) {
-            if (feature_buf[i] > local_max)
-                local_max = feature_buf[i];
-        }
-
-// more SIMD hints
-#pragma omp simd reduction(+ : softmax_sum)
-        for (int i = 0; i < 16; i++) {
-            softmax_sum += expf(feature_buf[i] - local_max);
-        }
-
-// more SIMD hints
-#pragma omp simd reduction(+ : value)
-        for (int i = 0; i < 16; i++) {
-            value += ((float)i * (float)(expf(feature_buf[i] - local_max) / softmax_sum));
-        }
-        feature_value.push_back(value);
-    }
-
-    // decode bbox
-    float center_x, center_y, w, h;
-    center_x = (feature_value[2] - feature_value[0] + 2 * (0.5 + ((float)col))) * 0.5 *
-               yolo_post_layers_[layer_id].ratio;
-    center_y = (feature_value[3] - feature_value[1] + 2 * (0.5 + ((float)row))) * 0.5 *
-               yolo_post_layers_[layer_id].ratio;
-    w = (feature_value[2] + feature_value[0]) * yolo_post_layers_[layer_id].ratio;
-    h = (feature_value[3] + feature_value[1]) * yolo_post_layers_[layer_id].ratio;
-
-    // coord on padded image
-    float min_x = std::max(center_x - 0.5f * w, 0.0f);
-    float min_y = std::max(center_y - 0.5f * h, 0.0f);
-    float max_x = std::min(center_x + 0.5f * w, (float)model_w_);
-    float max_y = std::min(center_y + 0.5f * h, (float)model_h_);
-
-    // convert to raw bbox coords
-    min_x = static_cast<int>((min_x - pad_w_) / letterbox_ratio_);
-    min_y = static_cast<int>((min_y - pad_h_) / letterbox_ratio_);
-    max_x = static_cast<int>((max_x - pad_w_) / letterbox_ratio_);
-    max_y = static_cast<int>((max_y - pad_h_) / letterbox_ratio_);
-
-    BBox bbox(min_x, min_y, max_x, max_y, best_score, best_label, COCO_NAMES[best_label]);
-    boxes.push_back(bbox);
-}
-
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Result& result) {
 
     // Candidate Gathering
@@ -161,12 +91,40 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
         float* coord_base = outputs.at(layer.coord_port);
 
         for (size_t i = 0; i < layer.height * layer.width; ++i) {
-            _gather_candidate(all_boxes,
-                              layer_id,
-                              conf_base + i * class_count_,
-                              coord_base + i * layer.coord_fmap_size,
-                              i / layer.width /* row */,
-                              i % layer.width /* col */);
+
+            // get best label and score
+            float best_score;
+            int best_label = MX::Pipe::Util::get_best_label(best_score,
+                                                            conf_base + i * class_count_,
+                                                            valid_classes_,
+                                                            smgr_->thres_before_sigmoid);
+
+            // no label with sufficient score
+            if (best_label == -1)
+                continue;
+
+            // convert best score in [0,1] (e.g. apply sigmoid)
+            best_score = smgr_->convert(best_score);
+
+            // decode bbox (Distribution Focal Loss)
+            std::array<float, 4> coord =
+                    MX::Pipe::Util::dfl(coord_base + i * layer.coord_fmap_size,
+                                        pad_w_,
+                                        pad_h_,
+                                        i / layer.width /* row */,
+                                        i % layer.width /* col */,
+                                        layer.stride,
+                                        letterbox_ratio_);
+            // create bbox
+            BBox bbox(coord[0],
+                      coord[1],
+                      coord[2],
+                      coord[3],
+                      best_score,
+                      best_label,
+                      COCO_NAMES[best_label]);
+
+            all_boxes.push_back(bbox);
         }
     }
 

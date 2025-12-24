@@ -10,6 +10,11 @@
 
 namespace MX {
     namespace Pipe {
+        
+        constexpr int model_w = 640;  // Model input width to accelerator
+        constexpr int model_h = 640;  // Model input height to accelerator
+        constexpr int model_ch = 3;   // Model input channel to accelerator
+
         /**
          * @brief Labels of COCO dataset, COCO 2014 and 2017 uses the same images but
          * different train/val/test splits. Also, COCO defines 91 classes but the data

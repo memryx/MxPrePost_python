@@ -236,4 +236,63 @@ namespace MX::Pipe::Util {
         // no best label found if label == -1
         return best_label;
     }
+
+    /* DFL (Distribution Focal Loss) Decoding */
+    std::array<float, 4> dfl(float* coord_buf,
+                             int pad_w,
+                             int pad_h,
+                             int row,
+                             int col,
+                             int stride,
+                             float letterbox_ratio) {
+        // 1. DFL (Distribution Focal Loss) Decoding
+        // YOLO outputs 4 distances (left, top, right, bottom) as probability distributions.
+        // We compute the expected value (weighted sum) for each side.
+        float dists[4];  // {left, top, right, bottom}
+
+        for (int side = 0; side < 4; ++side) {
+            float* side_dist_buf = coord_buf + side * 16;
+
+            // Numerically stable Softmax: find max first
+            float local_max = side_dist_buf[0];
+            for (int i = 1; i < 16; ++i) {
+                if (side_dist_buf[i] > local_max)
+                    local_max = side_dist_buf[i];
+            }
+
+            float softmax_sum = 0.0f;
+            float weighted_sum = 0.0f;
+
+// Single pass for exp calculation to optimize performance
+#pragma omp simd reduction(+ : softmax_sum, weighted_sum)
+            for (int i = 0; i < 16; ++i) {
+                float exp_val = expf(side_dist_buf[i] - local_max);
+                softmax_sum += exp_val;
+                weighted_sum += (float)i * exp_val;
+            }
+            dists[side] = weighted_sum / softmax_sum;
+        }
+
+        // 2. Decode Distances to Anchor-Relative Coordinates
+        // Coordinates are relative to the grid cell center (row, col) multiplied by stride.
+        // d[0]=left, d[1]=top, d[2]=right, d[3]=bottom
+        float x1 = (col + 0.5f - dists[0]) * stride;
+        float y1 = (row + 0.5f - dists[1]) * stride;
+        float x2 = (col + 0.5f + dists[2]) * stride;
+        float y2 = (row + 0.5f + dists[3]) * stride;
+
+        // coord on padded image
+        x1 = std::clamp(x1, 0.0f, (float)MX::Pipe::model_w);
+        y1 = std::clamp(y1, 0.0f, (float)MX::Pipe::model_h);
+        x2 = std::clamp(x2, 0.0f, (float)MX::Pipe::model_w);
+        y2 = std::clamp(y2, 0.0f, (float)MX::Pipe::model_h);
+
+        // convert to raw bbox coords
+        float min_x = (x1 - pad_w) / letterbox_ratio;
+        float min_y = (y1 - pad_h) / letterbox_ratio;
+        float max_x = (x2 - pad_w) / letterbox_ratio;
+        float max_y = (y2 - pad_h) / letterbox_ratio;
+
+        return {min_x, min_y, max_x, max_y};
+    }
 }

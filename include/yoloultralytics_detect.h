@@ -33,16 +33,9 @@ namespace MX {
                 uint8_t conf_port;
                 size_t width;
                 size_t height;
-                size_t ratio;
+                size_t stride;
                 size_t coord_fmap_size;
             };
-
-            void _gather_candidate(std::vector<BBox>& boxes,
-                                   int layer_id,
-                                   float* conf_buffer,
-                                   float* coord_buffer,
-                                   int row,
-                                   int col);
 
             static constexpr size_t kNumPostProcessLayers = 3;
             struct LayerParams yolo_post_layers_[kNumPostProcessLayers];

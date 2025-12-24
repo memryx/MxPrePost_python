@@ -84,4 +84,12 @@ namespace MX::Pipe::Util {
                        float* score_buf,
                        const std::vector<int>& valid_classes,
                        float score_thres);
+
+    std::array<float, 4> dfl(float* coord_buf,
+                             int pad_w,
+                             int pad_h,
+                             int row,
+                             int col,
+                             int stride,
+                             float letterbox_ratio);
 }
