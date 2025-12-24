@@ -1,19 +1,21 @@
 #pragma once
 #include <array>
 #include <iostream>
-#include <list>
 #include <opencv2/opencv.hpp> /* imshow */
-#include <queue>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 namespace MX {
     namespace Pipe {
-        
-        constexpr int model_w = 640;  // Model input width to accelerator
-        constexpr int model_h = 640;  // Model input height to accelerator
-        constexpr int model_ch = 3;   // Model input channel to accelerator
+
+        constexpr int MODEL_W = 640;         // Model input width to accelerator
+        constexpr int MODEL_H = 640;         // Model input height to accelerator
+        constexpr int MODEL_CH = 3;          // Model input channel to accelerator
+        constexpr int COORD_FMAP_SIZE = 64;  // Number of feature map channels for bbox coordinates
+        constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coefficients
+        constexpr int MASK_PROTO_H = 160;   // Mask proto height
+        constexpr int MASK_PROTO_W = 160;   // Mask proto width
 
         /**
          * @brief Labels of COCO dataset, COCO 2014 and 2017 uses the same images but
@@ -113,7 +115,7 @@ namespace MX {
         };
 
         struct Mask {
-            std::vector<Point> points;
+            std::vector<Point> xy;
             int cls_id;
         };
 

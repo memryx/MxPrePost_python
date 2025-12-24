@@ -198,7 +198,7 @@ namespace MX::Pipe::Util {
 
         // Convert your custom points back to cv::Point
         std::vector<cv::Point> cv_points;
-        for (const auto& p : mask.points) {
+        for (const auto& p : mask.xy) {
             cv_points.push_back(cv::Point(p.x, p.y));
         }
 
@@ -238,13 +238,7 @@ namespace MX::Pipe::Util {
     }
 
     /* DFL (Distribution Focal Loss) Decoding */
-    std::array<float, 4> dfl(float* coord_buf,
-                             int pad_w,
-                             int pad_h,
-                             int row,
-                             int col,
-                             int stride,
-                             float letterbox_ratio) {
+    std::array<float, 4> dfl(float* coord_buf, int row, int col, int stride) {
         // 1. DFL (Distribution Focal Loss) Decoding
         // YOLO outputs 4 distances (left, top, right, bottom) as probability distributions.
         // We compute the expected value (weighted sum) for each side.
@@ -281,18 +275,13 @@ namespace MX::Pipe::Util {
         float x2 = (col + 0.5f + dists[2]) * stride;
         float y2 = (row + 0.5f + dists[3]) * stride;
 
-        // coord on padded image
-        x1 = std::clamp(x1, 0.0f, (float)MX::Pipe::model_w);
-        y1 = std::clamp(y1, 0.0f, (float)MX::Pipe::model_h);
-        x2 = std::clamp(x2, 0.0f, (float)MX::Pipe::model_w);
-        y2 = std::clamp(y2, 0.0f, (float)MX::Pipe::model_h);
+        // make sure coords are within letterbox size
+        x1 = std::clamp(x1, 0.0f, (float)MX::Pipe::MODEL_W - 1.f);
+        y1 = std::clamp(y1, 0.0f, (float)MX::Pipe::MODEL_H - 1.f);
+        x2 = std::clamp(x2, 0.0f, (float)MX::Pipe::MODEL_W - 1.f);
+        y2 = std::clamp(y2, 0.0f, (float)MX::Pipe::MODEL_H - 1.f);
 
-        // convert to raw bbox coords
-        float min_x = (x1 - pad_w) / letterbox_ratio;
-        float min_y = (y1 - pad_h) / letterbox_ratio;
-        float max_x = (x2 - pad_w) / letterbox_ratio;
-        float max_y = (y2 - pad_h) / letterbox_ratio;
-
-        return {min_x, min_y, max_x, max_y};
+        // coords for letterbox
+        return {x1, y1, x2, y2};
     }
 }

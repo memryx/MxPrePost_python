@@ -1,20 +1,19 @@
 #pragma once
 
-#include "config.h"
 #include "pipeline.h"
 
-#include <cstdlib>
-#include <opencv2/imgcodecs.hpp> /* imwrite */
-#include <opencv2/imgproc.hpp>   /* cvtcolor */
-#include <opencv2/opencv.hpp>    /* imshow */
+// forward declaration
+namespace MX::Pipe::Util {
+    class ScoreManager;
+}
 
 namespace MX {
     namespace Pipe {
         class YoloUltralyticsSegment : public MX::Pipe::Pipeline {
 
           public:
-            /** @brief Constructor for using official 80 classes COCO dataset. */
             YoloUltralyticsSegment(const YoloConfig& config);
+            ~YoloUltralyticsSegment();
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;
@@ -29,53 +28,29 @@ namespace MX {
                 uint8_t mask_coef_port;
                 size_t width;
                 size_t height;
-                size_t ratio;
-                size_t coord_fmap_size;
+                size_t stride;
             };
-
-            void _gather_candidate(std::vector<BBox>& boxes,
-                                   std::vector<float*>& all_mask_coefs,
-                                   int layer_id,
-                                   float* conf_cell_buf,
-                                   float* coord_cell_buf,
-                                   float* mask_row_buf,
-                                   int row,
-                                   int col);
-
-            float _conf_to_fastSigmoid_inputVal(float conf);
 
             static constexpr size_t kNumPostProcessLayers = 3;
             struct LayerParams yolo_post_layers_[kNumPostProcessLayers];
 
-            // Model-specific parameters.
-            const char** class_labels_;
-            int class_count_;
-            const int model_w_ = 640;  // Model input width to accelerator
-            const int model_h_ = 640;  // Model input height to accelerator
-            const int model_ch_ = 3;   // Model input channel to accelerator
-            const int proto_h_ = 160;  // Mask proto height
-            const int proto_w_ = 160;  // Mask proto width
-            const int mask_fmap_size_ = 32;
-
-            // Colors for labels and bounding boxes.
-            std::vector<cv::Scalar> class_label_colors_;
-            std::vector<cv::Scalar> bounding_box_colors_;
-
-            // Conf and IOU thresholds.
-            float conf_thres_;
+            // yolo config
             float iou_thres_;
-            std::unordered_set<int> valid_classes_;
-            float conf_thres_fastSigmoid_;  // Converted conf threshold for fast-sigmoid
+            std::vector<int> valid_classes_;
 
-            // Letterbox ratio and pad.
+            // width and height
             float letterbox_ratio_;
             int letterbox_w_;
             int letterbox_h_;
+
             int pad_h_;
             int pad_w_;
 
             int ori_w_;
             int ori_h_;
+
+            // misc
+            MX::Pipe::Util::ScoreManager* smgr_;
         };
 
     }

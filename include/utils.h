@@ -12,11 +12,11 @@ namespace MX::Pipe::Util {
 
     // TODO: comment more clearly
     struct ScoreManager {
-        bool fast_sigmoid;
         float raw_thres;
         float thres_before_sigmoid;
+        bool fast_sigmoid;
 
-        ScoreManager(float raw_thres, bool fast_sigmoid) :
+        ScoreManager(float raw_thres, bool fast_sigmoid = false) :
             raw_thres(raw_thres), fast_sigmoid(fast_sigmoid) {
 
             if (fast_sigmoid) {
@@ -85,11 +85,5 @@ namespace MX::Pipe::Util {
                        const std::vector<int>& valid_classes,
                        float score_thres);
 
-    std::array<float, 4> dfl(float* coord_buf,
-                             int pad_w,
-                             int pad_h,
-                             int row,
-                             int col,
-                             int stride,
-                             float letterbox_ratio);
+    std::array<float, 4> dfl(float* coord_buf, int row, int col, int stride);
 }

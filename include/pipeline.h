@@ -1,10 +1,6 @@
 #pragma once
 #include "config.h"
 
-#include <memory>
-#include <opencv2/opencv.hpp>
-#include <string>
-
 namespace MX {
     namespace Pipe {
         class Pipeline {
