@@ -1,0 +1,239 @@
+#include "yoloultralytics_pose.h"
+
+#include "utils.h"
+
+using namespace MX::Pipe;
+
+YoloUltralyticsPose::~YoloUltralyticsPose() {
+    delete smgr_;
+}
+
+YoloUltralyticsPose::YoloUltralyticsPose(const YoloConfig& config) {
+
+    // init settings from config
+    iou_thres_ = config.iou;
+
+    if (config.valid_classes.empty()) {
+        // use all classes
+        for (int i = 0; i < COCO_CLASS_NUMBER; ++i) {
+            valid_classes_.push_back(i);
+        }
+    } else {
+        // use specified classes
+        for (int cls : config.valid_classes) {
+            valid_classes_.push_back(cls);
+        }
+    }
+
+    // compute padding
+    // TODO: support vertical images as well
+    if (!MX::Pipe::Util::is_horizontal_input(config.ori_width, config.ori_height))
+        return;
+
+    ori_w_ = config.ori_width;
+    ori_h_ = config.ori_height;
+
+    // letterbox params
+    letterbox_ratio_ = (float)MX::Pipe::MODEL_W / ori_w_;
+    letterbox_w_ = ori_w_ * letterbox_ratio_;
+    letterbox_h_ = ori_h_ * letterbox_ratio_;
+
+    pad_w_ = (MX::Pipe::MODEL_W - letterbox_w_) / 2;
+    pad_h_ = (MX::Pipe::MODEL_H - letterbox_h_) / 2;
+
+    // init score manager
+    smgr_ = new MX::Pipe::Util::ScoreManager(config.conf, config.fast_sigmoid);
+
+    // init post-process layer params
+    yolo_post_layers_[0] = {
+            .coord_port = 0,
+            .conf_port = 1,
+            .keypt_port = 2,
+            .width = MX::Pipe::MODEL_W / 8,   // L0_HW, 640 / 8 = 80
+            .height = MX::Pipe::MODEL_H / 8,  // L0_HW, 640 / 8 = 80
+            .stride = 8,
+    };
+
+    yolo_post_layers_[1] = {
+            .coord_port = 3,
+            .conf_port = 4,
+            .keypt_port = 5,
+            .width = MX::Pipe::MODEL_W / 16,   // L1_HW, 640 / 16 = 40
+            .height = MX::Pipe::MODEL_H / 16,  // L1_HW, 640 / 16 = 40
+            .stride = 16,
+    };
+
+    yolo_post_layers_[2] = {
+            .coord_port = 6,
+            .conf_port = 7,
+            .keypt_port = 8,
+            .width = MX::Pipe::MODEL_W / 32,   // L2_HW, 640 / 32 = 20
+            .height = MX::Pipe::MODEL_H / 32,  // L2_HW, 640 / 32 = 20
+            .stride = 32,
+    };
+}
+
+cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
+    return MX::Pipe::Util::preprocess(image, letterbox_w_, letterbox_h_, pad_w_, pad_h_);
+}
+
+void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
+
+    // draw bbox
+    for (const BBox& bbox : result.boxes) {
+        MX::Pipe::Util::draw_bbox(image, bbox);
+    }
+
+    // draw keypoints and skeleton
+    for (const auto& kpts_per_box : result.keypoints) {
+
+        // draw lines (skeletons)
+        for (const auto& connection : KEYPOINT_PAIRS) {
+            int idx1 = connection.first;
+            int idx2 = connection.second;
+
+            if (idx1 < kpts_per_box.size() && idx2 < kpts_per_box.size()) {
+                auto kpt1 = kpts_per_box[idx1];
+                auto kpt2 = kpts_per_box[idx2];
+
+                if (kpt1.xy.x != -1 && kpt2.xy.x != -1) {
+                    cv::line(image,
+                             cv::Point(kpt1.xy.x, kpt1.xy.y),
+                             cv::Point(kpt2.xy.x, kpt2.xy.y),
+                             cv::Scalar(255, 255, 255),
+                             3);
+                }
+            }
+        }
+
+        // Draw individual keypoints
+        for (int i = 0; i < kpts_per_box.size(); ++i) {
+            auto& kpt = kpts_per_box[i];
+            if (kpt.xy.x != -1) {
+                cv::circle(image,
+                           cv::Point(kpt.xy.x, kpt.xy.y),
+                           4,
+                           KEYPOINT_COLORS[i % KEYPOINT_COLORS.size()],
+                           -1);
+            }
+        }
+    }
+}
+
+void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {
+
+    struct Anchor {
+        float grid_x;
+        float grid_y;
+        float stride;
+    };
+
+    // --- [PRE-CALCULATION] ---
+    // Move this to your constructor or a setup function.
+    // Important: The order MUST match the order you iterate through layers.
+    std::vector<Anchor> anchors;
+    std::vector<int> strides = {8, 16, 32};
+    std::vector<int> grid_sizes = {80, 40, 20};
+
+    for (int s = 0; s < strides.size(); ++s) {
+        for (int y = 0; y < grid_sizes[s]; ++y) {
+            for (int x = 0; x < grid_sizes[s]; ++x) {
+                // YOLOv8 centers are at (x + 0.5, y + 0.5)
+                anchors.push_back({(float)x + 0.5f, (float)y + 0.5f, (float)strides[s]});
+            }
+        }
+    }
+
+    // --- [PROCESSING LOOP] ---
+    std::vector<BBox> all_boxes;
+    std::vector<std::vector<Keypoint>> all_kpts;
+    size_t global_anchor_offset = 0;  // Track position in the 8400 global anchors
+
+    for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
+        const auto& layer = yolo_post_layers_[layer_id];
+        float* conf_base = outputs.at(layer.conf_port);
+        float* coord_base = outputs.at(layer.coord_port);
+        float* kpt_base = outputs.at(layer.keypt_port);
+
+        for (size_t i = 0; i < layer.height * layer.width; ++i) {
+            float score = conf_base[i];
+            if (score < smgr_->thres_before_sigmoid)
+                continue;
+
+            score = smgr_->convert(score);
+
+            // Get the specific anchor for this grid cell
+            // We use global_anchor_offset + i because 'anchors' is a flat list of all layers
+            const Anchor& anchor = anchors[global_anchor_offset + i];
+
+            // 1. Decode BBox (Distribution Focal Loss)
+            // Note: Using anchor.grid_x/y ensures consistency with keypoint decoding
+            std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
+                                                             anchor.grid_y - 0.5f,  // row
+                                                             anchor.grid_x - 0.5f,  // col
+                                                             layer.stride);
+
+            // Convert BBox to original image scale
+            float x1 = (coord[0] - pad_w_) / letterbox_ratio_;
+            float y1 = (coord[1] - pad_h_) / letterbox_ratio_;
+            float x2 = (coord[2] - pad_w_) / letterbox_ratio_;
+            float y2 = (coord[3] - pad_h_) / letterbox_ratio_;
+
+            all_boxes.emplace_back(x1, y1, x2, y2, score, 0, "person");
+
+            // 2. Decode Keypoints
+            std::vector<Keypoint> kpts_per_box;
+            for (size_t k = 0; k < NUM_KEYPOINTS; ++k) {
+                // offset: Jump to grid cell 'i', then jump to keypoint 'k', each has (x, y, conf)
+                int offset = (i * NUM_KEYPOINTS * 3) + (k * 3);
+
+                float raw_x = kpt_base[offset];
+                float raw_y = kpt_base[offset + 1];
+                float kpt_conf_raw = kpt_base[offset + 2];
+
+                // Only process if keypoint confidence is high enough
+                if (kpt_conf_raw > smgr_->thres_before_sigmoid) {
+                    // YOLOv8 Pose Decoding:
+                    // 1. Multiply by 2.0 (Model output range is usually -0.5 to 1.5)
+                    // 2. Add the grid center (Shift to absolute feature map position)
+                    // 3. Multiply by stride (Scale up to model input size: e.g., 640x640)
+                    float kpt_x = (raw_x * 2.0f + (anchor.grid_x - 0.5f)) * anchor.stride;
+                    float kpt_y = (raw_y * 2.0f + (anchor.grid_y - 0.5f)) * anchor.stride;
+
+                    // 4. Recovery from Letterbox (Scale to original image pixels)
+                    kpt_x = (kpt_x - pad_w_) / letterbox_ratio_;
+                    kpt_y = (kpt_y - pad_h_) / letterbox_ratio_;
+
+                    float kpt_conf = smgr_->convert(kpt_conf_raw);
+                    kpts_per_box.push_back(Keypoint{Point{(int)kpt_x, (int)kpt_y}, kpt_conf});
+                } else {
+                    // Use a sentinel value for hidden/occluded keypoints
+                    kpts_per_box.push_back(Keypoint{Point{-1, -1}, 0.0f});
+                }
+            }
+            all_kpts.push_back(kpts_per_box);
+        }
+        // Update the offset so the next layer points to the correct section of the anchor vector
+        global_anchor_offset += (layer.height * layer.width);
+    }
+
+    // apply NMS
+    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, iou_thres_);
+
+    // early exit
+    int num_keep = static_cast<int>(keep_indices.size());
+    if (num_keep == 0)
+        return;
+
+    // keep only the selected boxes
+    result.boxes.reserve(keep_indices.size());
+    for (int idx : keep_indices) {
+        result.boxes.push_back(all_boxes[idx]);
+    }
+
+    // keep only the selected keypoints
+    result.keypoints.reserve(keep_indices.size());
+    for (int idx : keep_indices) {
+        result.keypoints.push_back(all_kpts[idx]);
+    }
+}

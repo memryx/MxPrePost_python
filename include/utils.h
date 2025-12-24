@@ -12,12 +12,12 @@ namespace MX::Pipe::Util {
 
     // TODO: comment more clearly
     struct ScoreManager {
-        float raw_thres;
+        float conf_thres_after_sigmoid;
         float thres_before_sigmoid;
         bool fast_sigmoid;
 
-        ScoreManager(float raw_thres, bool fast_sigmoid = false) :
-            raw_thres(raw_thres), fast_sigmoid(fast_sigmoid) {
+        ScoreManager(float conf_thres_after_sigmoid, bool fast_sigmoid = false) :
+            conf_thres_after_sigmoid(conf_thres_after_sigmoid), fast_sigmoid(fast_sigmoid) {
 
             if (fast_sigmoid) {
                 // Converts a score value in [0,1] to the corresponding input for the fast-sigmoid
@@ -28,11 +28,12 @@ namespace MX::Pipe::Util {
                 //   1. Map conf [0,1] -> x [-1,1]
                 //   2. Return x as input for fast-sigmoid
 
-                float x = raw_thres * 2.0f - 1.0f;                // map [0,1] -> [-1,1]
-                thres_before_sigmoid = x / (1.0f - std::abs(x));  // map [-1, 1] -> [-inf, inf]
+                float x = conf_thres_after_sigmoid * 2.0f - 1.0f;  // map [0,1] -> [-1,1]
+                thres_before_sigmoid = x / (1.0f - std::abs(x));   // map [-1, 1] -> [-inf, inf]
             } else {
                 // x = ln(y / (1 - y))
-                thres_before_sigmoid = -logf(raw_thres / (1.0f - raw_thres));
+                thres_before_sigmoid =
+                        -logf(conf_thres_after_sigmoid / (1.0f - conf_thres_after_sigmoid));
             }
         }
 
