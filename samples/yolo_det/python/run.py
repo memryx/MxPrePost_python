@@ -67,7 +67,7 @@ class YoloApp:
             ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             conf=0.3,
             iou=0.4,
-            valid_classes=[0],
+            # valid_classes=[0],
         )
 
         # Start display thread
@@ -216,7 +216,7 @@ class YoloApp:
             # print FPS
             if self.frame_count[stream_id] % FPS_LOG_INTERVAL == 0:
                 # msg
-                msg = "Frame cnt: {} stream {} => FPS: {:.2f}"
+                msg = "Frame cnt: {}, Stream {} => FPS: {:.2f}"
                 lines = [
                     msg.format(self.frame_count[i], i, self.fps_number[i])
                     for i in range(self.num_streams)
@@ -254,7 +254,7 @@ def main(args):
     app.run()  # Start inference
 
     for i in range(app.num_streams):
-        print(f"Final Avg FPS for Stream {i}: {app.get_avg_fps(i):.2f}")
+        print(f"\n\nFinal Avg FPS for Stream {i}: {app.get_avg_fps(i):.2f}")
 
 
 if __name__ == "__main__":

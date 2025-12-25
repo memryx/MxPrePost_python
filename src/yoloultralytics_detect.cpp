@@ -85,6 +85,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
 
     // Candidate Gathering
     std::vector<BBox> all_boxes;
+    all_boxes.reserve(TOTAL_ANCHORS);
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);
@@ -121,15 +122,13 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
             coord[3] = (coord[3] - pad_h_) / letterbox_ratio_;
 
             // store bbox
-            BBox bbox(coord[0],
-                      coord[1],
-                      coord[2],
-                      coord[3],
-                      best_score,
-                      best_label,
-                      COCO_NAMES[best_label]);
-
-            all_boxes.push_back(bbox);
+            all_boxes.emplace_back(coord[0],
+                                   coord[1],
+                                   coord[2],
+                                   coord[3],
+                                   best_score,
+                                   best_label,
+                                   COCO_NAMES[best_label]);
         }
     }
 

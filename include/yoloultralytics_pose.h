@@ -9,6 +9,7 @@ namespace MX::Pipe::Util {
 
 namespace MX {
     namespace Pipe {
+
         class YoloUltralyticsPose : public MX::Pipe::Pipeline {
 
           public:
@@ -29,6 +30,7 @@ namespace MX {
                 size_t width;
                 size_t height;
                 size_t stride;
+                std::vector<Point2f> anchors;
             };
 
             static constexpr size_t kNumPostProcessLayers = 3;

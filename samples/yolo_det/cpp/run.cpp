@@ -127,6 +127,7 @@ class YoloApp {
     // FPS related
     int num_frames = 0;
     int frame_count = 0;
+    int total_frame_count = 0;
     float fps_number = .0;  // FPS counter
     std::chrono::milliseconds start_ms;
     std::vector<float> history_fps;
@@ -202,6 +203,7 @@ class YoloApp {
 
     void _update_fps(int stream_id) {
         frame_count++;
+        total_frame_count++;
         if (frame_count == 1) {
             start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::system_clock::now().time_since_epoch());
@@ -214,7 +216,9 @@ class YoloApp {
 
             // Store FPS in history and print
             history_fps.push_back(fps_number);
-            std::cout << "Stream " << stream_id << " FPS: " << fps_number << "\n";
+
+            std::cout << "Frame cnt: " << total_frame_count << ", Stream " << stream_id
+                      << " => FPS: " << fps_number << "\n";
 
             // Reset for next calculation
             frame_count = 0;
@@ -318,12 +322,10 @@ int main(int argc, char* argv[]) {
                 printUsage(argv[0]);
                 return 1;
             }
-        }
-        else if (arg == "--show") {
+        } else if (arg == "--show") {
             // Creating GuiView for display
             gui = new MxQt(argc, argv);
-        }
-        else if (arg == "-t" || arg == "--task") {
+        } else if (arg == "-t" || arg == "--task") {
             task = argv[++i];
         }
         // Handle unknown options

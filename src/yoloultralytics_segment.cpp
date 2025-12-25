@@ -84,6 +84,8 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     // Candidate Gathering
     std::vector<BBox> all_boxes;
     std::vector<float*> all_mask_coefs;  // mask coefficient base ptrs
+    all_boxes.reserve(TOTAL_ANCHORS);
+    all_mask_coefs.reserve(TOTAL_ANCHORS);
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);
@@ -121,18 +123,16 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             coord[3] = (coord[3] - pad_h_) / letterbox_ratio_;
 
             // store bbox
-            BBox bbox(coord[0],
-                      coord[1],
-                      coord[2],
-                      coord[3],
-                      best_score,
-                      best_label,
-                      COCO_NAMES[best_label]);
-
-            all_boxes.push_back(bbox);
+            all_boxes.emplace_back(coord[0],
+                                   coord[1],
+                                   coord[2],
+                                   coord[3],
+                                   best_score,
+                                   best_label,
+                                   COCO_NAMES[best_label]);
 
             // store mask coef pointer
-            all_mask_coefs.push_back(mask_coef_base + i * MASK_FMAP_SIZE);
+            all_mask_coefs.emplace_back(mask_coef_base + i * MASK_FMAP_SIZE);
         }
     }
 
@@ -160,14 +160,9 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         src_col.copyTo(col_header);
     }
 
-    // Mask Generation via OpenCV MatMul
+    // Prepare Proto Masks
     cv::Mat mask_proto(MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[2]);
-
-    // Matrix Multiplication: (160*160, 32) * (32, N) -> (160*160, N)
-    cv::Mat raw_masks = mask_proto * mask_coefs_mat;
-
-    // Reshape and Resize
-    int dims[] = {MASK_PROTO_H, MASK_PROTO_W, (int)num_keep};
+    cv::Mat raw_masks = mask_proto * mask_coefs_mat;  // (160*160, 32) * (32, N) -> (160*160, N)
     cv::Mat mask_stack = raw_masks.reshape((int)num_keep, MASK_PROTO_H);
 
     // resize

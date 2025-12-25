@@ -71,6 +71,16 @@ YoloUltralyticsPose::YoloUltralyticsPose(const YoloConfig& config) {
             .height = MX::Pipe::MODEL_H / 32,  // L2_HW, 640 / 32 = 20
             .stride = 32,
     };
+
+    // init anchors for each layer
+    for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
+        auto& layer = yolo_post_layers_[layer_id];
+        for (size_t y = 0; y < layer.height; ++y) {
+            for (size_t x = 0; x < layer.width; ++x) {
+                layer.anchors.push_back({x + 0.5f, y + 0.5f});
+            }
+        }
+    }
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
@@ -122,33 +132,10 @@ void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
 
 void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {
 
-    struct Anchor {
-        float grid_x;
-        float grid_y;
-        float stride;
-    };
-
-    // --- [PRE-CALCULATION] ---
-    // Move this to your constructor or a setup function.
-    // Important: The order MUST match the order you iterate through layers.
-    std::vector<Anchor> anchors;
-    std::vector<int> strides = {8, 16, 32};
-    std::vector<int> grid_sizes = {80, 40, 20};
-
-    for (int s = 0; s < strides.size(); ++s) {
-        for (int y = 0; y < grid_sizes[s]; ++y) {
-            for (int x = 0; x < grid_sizes[s]; ++x) {
-                // YOLOv8 centers are at (x + 0.5, y + 0.5)
-                anchors.push_back({(float)x + 0.5f, (float)y + 0.5f, (float)strides[s]});
-            }
-        }
-    }
-
-    // --- [PROCESSING LOOP] ---
     std::vector<BBox> all_boxes;
     std::vector<std::vector<Keypoint>> all_kpts;
-    size_t global_anchor_offset = 0;  // Track position in the 8400 global anchors
-
+    all_boxes.reserve(TOTAL_ANCHORS);
+    all_kpts.reserve(TOTAL_ANCHORS);
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);
@@ -167,14 +154,12 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
             score = smgr_->convert(score);
 
             // Get the specific anchor for this grid cell
-            // We use global_anchor_offset + i because 'anchors' is a flat list of all layers
-            const Anchor& anchor = anchors[global_anchor_offset + i];
+            const Point2f& anchor = layer.anchors[i];
 
             // 1. Decode BBox (Distribution Focal Loss)
-            // Note: Using anchor.grid_x/y ensures consistency with keypoint decoding
             std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
-                                                             anchor.grid_y - 0.5f,  // row
-                                                             anchor.grid_x - 0.5f,  // col
+                                                             i / layer.width /* row */,
+                                                             i % layer.width /* col */,
                                                              layer.stride);
 
             // Convert BBox to original image scale
@@ -201,24 +186,25 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
                     // 1. Multiply by 2.0 (Model output range is usually -0.5 to 1.5)
                     // 2. Add the grid center (Shift to absolute feature map position)
                     // 3. Multiply by stride (Scale up to model input size: e.g., 640x640)
-                    float kpt_x = (raw_x * 2.0f + (anchor.grid_x - 0.5f)) * anchor.stride;
-                    float kpt_y = (raw_y * 2.0f + (anchor.grid_y - 0.5f)) * anchor.stride;
+                    //
+                    // detail:
+                    // https://docs.google.com/document/d/1ENBtyOH2IyDi_NlozJ2HvOvattHg9WLydIHEzjMoZY0/edit?usp=sharing
+                    float kpt_x = (raw_x * 2.0f + (anchor.x - 0.5f)) * layer.stride;
+                    float kpt_y = (raw_y * 2.0f + (anchor.y - 0.5f)) * layer.stride;
 
                     // 4. Recovery from Letterbox (Scale to original image pixels)
                     kpt_x = (kpt_x - pad_w_) / letterbox_ratio_;
                     kpt_y = (kpt_y - pad_h_) / letterbox_ratio_;
 
                     float kpt_conf = smgr_->convert(kpt_conf_raw);
-                    kpts_per_box.push_back(Keypoint{Point{(int)kpt_x, (int)kpt_y}, kpt_conf});
+                    kpts_per_box.emplace_back(kpt_x, kpt_y, kpt_conf);
                 } else {
                     // Use a sentinel value for hidden/occluded keypoints
-                    kpts_per_box.push_back(Keypoint{Point{-1, -1}, 0.0f});
+                    kpts_per_box.emplace_back(-1, -1, 0.0f);
                 }
             }
             all_kpts.push_back(kpts_per_box);
         }
-        // Update the offset so the next layer points to the correct section of the anchor vector
-        global_anchor_offset += (layer.height * layer.width);
     }
 
     // apply NMS

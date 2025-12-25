@@ -9,6 +9,7 @@
 namespace MX {
     namespace Pipe {
 
+        constexpr int TOTAL_ANCHORS = 8400;  // Total anchors across all YOLO layers
         constexpr int MODEL_W = 640;         // Model input width to accelerator
         constexpr int MODEL_H = 640;         // Model input height to accelerator
         constexpr int MODEL_CH = 3;          // Model input channel to accelerator
@@ -147,14 +148,24 @@ namespace MX {
             int y;
         };
 
+        struct Point2f {
+            float x;
+            float y;
+        };
+
         struct Mask {
             std::vector<Point> xy;
             int cls_id;
         };
 
         struct Keypoint {
-            Point xy;
+            Point2f xy;
             float conf;
+
+            Keypoint(Point2f xy, float conf) : xy{xy}, conf(conf) {
+            }
+            Keypoint(float x, float y, float conf) : xy{Point2f{x, y}}, conf(conf) {
+            }
         };
 
         struct Result {
