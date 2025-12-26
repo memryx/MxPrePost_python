@@ -97,11 +97,11 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug  && make -j$(nproc)
 
 ### Python example:
 ```bash
-cd POST_API/samples/yolo_det/python
+cd POST_API/samples/python
 
 # Create a symbolic link to the built module, note that python version here is based on your virtualenv
 # ex: ln -sv ../../pymodule/build/mxpipe.cpython-310-x86_64-linux-gnu.so
-ln -sv ../../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
+ln -sv ../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
 
 # ex:
 # python run.py -d models/onnx/YOLO_v8_small_640_640_3_onnx.dfp \
@@ -116,9 +116,9 @@ Notes
 
 ### C++ example:
 ```bash
-cd POST_API/samples/yolo_det/cpp
+cd POST_API/samples/cpp
 
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
-./yolo_detect [-d <dfp_path>] [--video_paths "cam:0,vid:video_path"] [--show]
+./yolo [-d <dfp_path>] [--video_paths "cam:0,vid:video_path"] [--show]
 ```
