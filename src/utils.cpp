@@ -3,8 +3,6 @@
 
 #define FONT (cv::FONT_ITALIC)
 
-using RowMatrix = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
 using namespace MX::Pipe;
 
 namespace {  // anonymous namespace to avoid symbol conflict

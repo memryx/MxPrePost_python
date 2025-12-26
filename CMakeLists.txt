@@ -23,6 +23,5 @@ target_link_libraries(mxpipe ${OpenCV_LIBS})
 
 target_include_directories(mxpipe PRIVATE 
     ${OpenCV_INCLUDE_DIRS}
-    extern/Eigen
     include/
 )

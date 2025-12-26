@@ -2,7 +2,6 @@
 
 #include "config.h"
 
-#include <Eigen/Dense>
 #include <algorithm>
 #include <numeric>
 

@@ -150,24 +150,25 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         result.boxes.push_back(all_boxes[idx]);
     }
 
-    // declare mask_coefs_mat
-    using RowMatrix = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    RowMatrix mask_coefs_mat(MASK_FMAP_SIZE, num_keep);
-
     // keep only selected mask coefficients
+    cv::Mat mask_coefs_mat(MASK_FMAP_SIZE, (int)num_keep, CV_32F);
     for (size_t i = 0; i < num_keep; ++i) {
-        mask_coefs_mat.col(i) =
-                Eigen::Map<Eigen::VectorXf>(all_mask_coefs[keep_indices[i]], MASK_FMAP_SIZE);
+        // Create a header for the destination column
+        cv::Mat col_header = mask_coefs_mat.col((int)i);
+        // Wrap the source data in a temporary Mat header and copy it
+        cv::Mat src_col(MASK_FMAP_SIZE, 1, CV_32F, all_mask_coefs[keep_indices[i]]);
+        src_col.copyTo(col_header);
     }
 
-    // Mask Generation via Eigen to speed up (MatMul)
-    // Proto: (160*160, 32), Coefs: (32, N)
-    Eigen::Map<const RowMatrix> mask_proto(
-            outputs[2], MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE);
-    RowMatrix raw_masks = mask_proto * mask_coefs_mat;  // (160 * 160, N)
+    // Mask Generation via OpenCV MatMul
+    cv::Mat mask_proto(MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[2]);
 
-    // Wrap the raw data into a 3D-aware shape (H, W, Channels)
-    cv::Mat mask_stack(MASK_PROTO_H, MASK_PROTO_W, CV_32FC(num_keep), (void*)raw_masks.data());
+    // Matrix Multiplication: (160*160, 32) * (32, N) -> (160*160, N)
+    cv::Mat raw_masks = mask_proto * mask_coefs_mat;
+
+    // Reshape and Resize
+    int dims[] = {MASK_PROTO_H, MASK_PROTO_W, (int)num_keep};
+    cv::Mat mask_stack = raw_masks.reshape((int)num_keep, MASK_PROTO_H);
 
     // resize
     cv::Mat resized_stack;
