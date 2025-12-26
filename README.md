@@ -43,7 +43,7 @@ You can configure the behavior during initialization. This sets the base configu
 Example:
 ```python
 pipe = Pipeline(
-    task="yolov8_det",       # yolovX_Y (e.g. yolov8_det | yolov9_seg | yolov11_pose)
+    task="yolov8_det",          # yolovX_Y (e.g. yolov8_det, yolov9_seg, yolov11_pose, etc.)
     conf=0.5,                   # confidence threshold
     iou=0.5,                    # IoU threshold for NMS
     valid_classes=[0, 2],       # filter predictions by class IDs (COCO dataset)
@@ -105,12 +105,14 @@ ln -sv ../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
 
 # ex:
 # python run.py -d models/onnx/YOLO_v8_small_640_640_3_onnx.dfp \
+#               --task yolov8_det \
 #               --video_paths videos/sample.mp4 \
 #               --show
 #               --old_bind
-python run.py [-d <onnx_model>] [--video_paths <video>] [--show] [--old_bind]
+python run.py [--task <task>] [-d <onnx_model>] [--video_paths <video>] [--show] [--old_bind]
 ```
-Notes
+Notes:
+- `--task`: yolovX_Y (e.g. yolov8_det, yolov9_seg, yolov11_pose, etc.)
 - `--old_bind`: Use legacy accl binding (MultiStreamAsyncAccl)
 - `--show`: Display results
 
@@ -120,5 +122,5 @@ cd POST_API/samples/cpp
 
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
-./yolo [-d <dfp_path>] [--video_paths "cam:0,vid:video_path"] [--show]
+./yolo [--task <task>] [-d <dfp_path>] [--video_paths "cam:0,vid:video_path"] [--show]
 ```
