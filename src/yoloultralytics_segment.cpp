@@ -73,7 +73,6 @@ cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
 }
 
 void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
-    // TODO: imrpove drawing by adding bbox + label together with mask
     for (const Mask& mask : result.masks) {
         MX::Pipe::Util::draw_mask(image, mask);
     }
@@ -160,78 +159,75 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         src_col.copyTo(col_header);
     }
 
-    // Prepare Proto Masks
+    // Prepare Proto Masks (160*160, N)
     cv::Mat mask_proto(MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[2]);
     cv::Mat raw_masks = mask_proto * mask_coefs_mat;  // (160*160, 32) * (32, N) -> (160*160, N)
     cv::Mat mask_stack = raw_masks.reshape((int)num_keep, MASK_PROTO_H);
 
-    // resize
-    cv::Mat resized_stack;
-    cv::resize(mask_stack, resized_stack, cv::Size(MODEL_W, MODEL_H), 0, 0, cv::INTER_LINEAR);
+    // Factors to move from Model Space (640) to Proto Space (160)
+    float model_to_proto_x = (float)MASK_PROTO_W / MODEL_W;
+    float model_to_proto_y = (float)MASK_PROTO_H / MODEL_H;
 
-    // Define the ROI (Region of Interest) to remove letterbox padding
-    cv::Rect roi(pad_w_, pad_h_, letterbox_w_, letterbox_h_);
-
-    // Crop and resize
-    cv::Mat cropped_stack = resized_stack(roi);
-    cv::Mat final_mask;
-    cv::resize(cropped_stack, final_mask, cv::Size(ori_w_, ori_h_), 0, 0, cv::INTER_LINEAR);
-
-    // split
-    std::vector<cv::Mat> mask_vec;
-    cv::split(final_mask, mask_vec);
-
-    // TODO: Optimization:
-    // =================================
-    // - Scale the Bounding Box coordinates down to the Proto size (160 x 160).
-    // - Crop the mask proto first.
-    // - Resize only that tiny crop to the bounding box dimensions.
-    // - Run findContours on that small patch.
-    // - Approximate Polygons (cv::approxPolyDP) cv::findContours often returns hundreds of points
-    //
-    // For a single object. If you are sending these points over a network or drawing them, this is
-    // a major bottleneck. Use the Ramer-Douglas-Peucker algorithm to simplify the shapes.
-    // =================================
-
-    // Assign to result.masks
-    for (int i = 0; i < mask_vec.size(); ++i) {
-        const cv::Mat& mask = mask_vec[i];
+    for (int i = 0; i < num_keep; ++i) {
         const BBox& box = result.boxes[i];
-        int cls_id = box.cls_id;
 
-        // Threshold the float mask to binary (0 or 255)
+        // --- STEP 1: Get BBox in Model Space (undo the mapping to original image) ---
+        // We need the box relative to the 640x640 letterbox to crop the 160x160 proto correctly
+        float m_x1 = box.x_min * letterbox_ratio_ + pad_w_;
+        float m_y1 = box.y_min * letterbox_ratio_ + pad_h_;
+        float m_x2 = box.x_max * letterbox_ratio_ + pad_w_;
+        float m_y2 = box.y_max * letterbox_ratio_ + pad_h_;
+
+        // --- STEP 2: Scale BBox to Proto Space (160x160) ---
+        int px1 = std::clamp((int)(m_x1 * model_to_proto_x), 0, MASK_PROTO_W - 1);
+        int py1 = std::clamp((int)(m_y1 * model_to_proto_y), 0, MASK_PROTO_H - 1);
+        int px2 = std::clamp((int)(m_x2 * model_to_proto_x), 0, MASK_PROTO_W - 1);
+        int py2 = std::clamp((int)(m_y2 * model_to_proto_y), 0, MASK_PROTO_H - 1);
+
+        if (px2 <= px1 || py2 <= py1)
+            continue;
+
+        // --- STEP 3: Crop the 160x160 proto mask ---
+        cv::Rect proto_roi(px1, py1, px2 - px1, py2 - py1);
+        cv::Mat one_mask;
+        cv::extractChannel(mask_stack, one_mask, i);
+        cv::Mat mask_crop = one_mask(proto_roi);
+
+        // --- STEP 4: Resize crop to "Original Image" BBox dimensions ---
+        int target_w = std::max(1, (int)(box.x_max - box.x_min));
+        int target_h = std::max(1, (int)(box.y_max - box.y_min));
+
+        cv::Mat resized_crop;
+        cv::resize(mask_crop, resized_crop, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
+
+        // --- STEP 5: Binary Threshold & Contours ---
         cv::Mat binary_mask;
-        cv::threshold(mask, binary_mask, 0.5, 255, cv::THRESH_BINARY);
+        cv::threshold(resized_crop, binary_mask, 0.5, 255, cv::THRESH_BINARY);
         binary_mask.convertTo(binary_mask, CV_8U);
 
-        // Create a Rect from your BBox
-        // Ensure coordinates are within image bounds to prevent crashes
-        int x = std::max(0, (int)box.x_min);
-        int y = std::max(0, (int)box.y_min);
-        int w = std::min(binary_mask.cols - x, (int)(box.x_max - box.x_min));
-        int h = std::min(binary_mask.rows - y, (int)(box.y_max - box.y_min));
-        cv::Rect roi_rect(x, y, w, h);
-
-        // Create a global mask and only keep the ROI area
-        cv::Mat roi_only_mask = cv::Mat::zeros(binary_mask.size(), binary_mask.type());
-        binary_mask(roi_rect).copyTo(roi_only_mask(roi_rect));
-
-        // Find contours on the clipped mask
+        // find contours on the binary mask
         std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(roi_only_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        cv::findContours(binary_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        // Convert cv::Point to your custom Point struct
         for (const auto& contour : contours) {
+            // A valid polygon needs at least 3 points
+            if (contour.size() < 3)
+                continue;
 
             Mask mask_struct;
-            mask_struct.cls_id = cls_id;  // Assign class ID
+            mask_struct.cls_id = box.cls_id;
+            mask_struct.xy.reserve(contour.size());
 
-            // assign points
+            // --- STEP 7: Map points back to Original Image Space ---
+            // Points 'p' are relative to the BBox crop.
+            // Add the BBox top-left offset to get global coordinates.
+            int offset_x = (int)box.x_min;
+            int offset_y = (int)box.y_min;
+
             for (const auto& p : contour) {
-                mask_struct.xy.push_back({p.x, p.y});
+                mask_struct.xy.push_back({p.x + offset_x, p.y + offset_y});
             }
 
-            // Add to your results
             if (!mask_struct.xy.empty()) {
                 result.masks.push_back(mask_struct);
             }

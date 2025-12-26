@@ -171,21 +171,60 @@ namespace MX::Pipe::Util {
     }
 
     void draw_mask(cv::Mat& image, const Mask& mask, float alpha) {
-        // Create an overlay layer
+        // 1. Create an overlay layer for the semi-transparent mask
         cv::Mat overlay = image.clone();
 
-        // Convert your custom points back to cv::Point
+        // Convert custom points to cv::Point
         std::vector<cv::Point> cv_points;
         for (const auto& p : mask.xy) {
             cv_points.push_back(cv::Point(p.x, p.y));
         }
 
-        // Fill the polygon on the overlay
-        std::vector<std::vector<cv::Point>> fill_contour = {cv_points};
-        cv::fillPoly(overlay, fill_contour, box_colors[mask.cls_id]);
+        // 2. Fill the polygon (Mask)
+        std::vector<std::vector<cv::Point>> contours = {cv_points};
+        cv::Scalar color = box_colors[mask.cls_id];
+        cv::fillPoly(overlay, contours, color);
 
-        // Blend the overlay with the original image
+        // Blend the mask into the original image
         cv::addWeighted(overlay, alpha, image, 1.0 - alpha, 0, image);
+
+        // 3. Draw Bounding Box
+        cv::Rect rect = cv::boundingRect(cv_points);
+        cv::rectangle(image, rect, color, 2);  // Thickness of 2
+
+        // 4. Draw Label Text and Background
+        std::string label = COCO_NAMES[mask.cls_id];
+        int font_face = cv::FONT_HERSHEY_SIMPLEX;
+        double font_scale = 0.5;
+        int thickness = 1;
+        int baseline = 0;
+
+        // Calculate text size to create a background box
+        cv::Size text_size = cv::getTextSize(label, font_face, font_scale, thickness, &baseline);
+        cv::Point text_org(rect.x, rect.y - 5);  // Position above the top-left of the bbox
+
+        // Ensure the label doesn't go off the top of the screen
+        if (text_org.y < 0)
+            text_org.y = text_size.height;
+
+        // Draw filled rectangle for text background
+        cv::rectangle(image,
+                      cv::Point(text_org.x, text_org.y - text_size.height),
+                      cv::Point(text_org.x + text_size.width, text_org.y + baseline),
+                      color,
+                      -1);
+
+        // Draw white text on top of the colored label background
+        cv::putText(image,
+                    label,
+                    text_org,
+                    font_face,
+                    font_scale,
+                    label_colors[mask.cls_id],
+                    thickness);
+
+        // Optional: Draw the contour outline
+        cv::polylines(image, contours, true, cv::Scalar(255, 255, 255), 1);
     }
 
     int get_best_label(float& best_score,
