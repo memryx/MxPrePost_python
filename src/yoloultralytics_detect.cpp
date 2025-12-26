@@ -5,10 +5,6 @@
 using namespace MX::Pipe;
 using namespace MX::Pipe::Util;
 
-YoloUltralyticsDetect::~YoloUltralyticsDetect() {
-    delete smgr_;
-}
-
 YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
 
     // init settings from config
@@ -26,11 +22,6 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
         }
     }
 
-    // compute padding
-    // TODO: support vertical images as well
-    if (!MX::Pipe::Util::is_horizontal_input(config.ori_width, config.ori_height))
-        return;
-
     ori_w_ = config.ori_width;
     ori_h_ = config.ori_height;
 
@@ -43,7 +34,7 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     pad_h_ = (MODEL_H - letterbox_h_) / 2;
 
     // init score manager
-    smgr_ = new MX::Pipe::Util::ScoreManager(config.conf, config.fast_sigmoid);
+    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(config.conf, config.fast_sigmoid);
 
     // init post-process layer params
     yolo_post_layers_[0] = {

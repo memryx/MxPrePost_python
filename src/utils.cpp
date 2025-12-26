@@ -6,6 +6,22 @@
 using namespace MX::Pipe;
 
 namespace {  // anonymous namespace to avoid symbol conflict
+    const std::vector<cv::Scalar> TEXT_COLORS = {
+            {0, 0, 0},
+            {255, 255, 255},
+            {255, 255, 255},
+            {255, 255, 255},
+            {255, 215, 0},
+    };
+
+    const std::vector<cv::Scalar> BOX_COLORS = {
+            {255, 255, 0, 0.6},
+            {26, 35, 126, 0.6},
+            {255, 50, 50, 0.6},
+            {0, 0, 0, 0.6},
+            {51, 51, 51, 0.6},
+    };
+
     std::vector<cv::Scalar> make_colors(const std::vector<cv::Scalar>& src_colors,
                                         size_t class_count) {
         std::vector<cv::Scalar> colors;
@@ -19,8 +35,8 @@ namespace {  // anonymous namespace to avoid symbol conflict
     }
 
     // initialized once
-    const std::vector<cv::Scalar> label_colors = make_colors(COCO_TEXT_COLORS, COCO_CLASS_NUMBER);
-    const std::vector<cv::Scalar> box_colors = make_colors(COCO_BOX_COLORS, COCO_CLASS_NUMBER);
+    const std::vector<cv::Scalar> label_colors = make_colors(TEXT_COLORS, COCO_CLASS_NUMBER);
+    const std::vector<cv::Scalar> box_colors = make_colors(BOX_COLORS, COCO_CLASS_NUMBER);
 }
 
 namespace MX::Pipe::Util {
@@ -139,14 +155,6 @@ namespace MX::Pipe::Util {
                     cv::LINE_AA);
     }
 
-    bool is_horizontal_input(int ori_w, int ori_h) {
-        if (ori_h > ori_w) {
-            printf("Invalid display image: only horizontal images are supported.\n");
-            return false;
-        }
-        return true;
-    }
-
     cv::Mat
     preprocess(const cv::Mat& image, int letterbox_w, int letterbox_h, int pad_w, int pad_h) {
 
@@ -193,17 +201,17 @@ namespace MX::Pipe::Util {
         cv::rectangle(image, rect, color, 2);  // Thickness of 2
 
         // 4. Draw Label Text and Background
-        std::string label = COCO_NAMES[mask.cls_id];
+        std::string text = COCO_NAMES[mask.cls_id];
         int font_face = cv::FONT_HERSHEY_SIMPLEX;
         double font_scale = 0.5;
         int thickness = 1;
         int baseline = 0;
 
         // Calculate text size to create a background box
-        cv::Size text_size = cv::getTextSize(label, font_face, font_scale, thickness, &baseline);
+        cv::Size text_size = cv::getTextSize(text, font_face, font_scale, thickness, &baseline);
         cv::Point text_org(rect.x, rect.y - 5);  // Position above the top-left of the bbox
 
-        // Ensure the label doesn't go off the top of the screen
+        // Ensure the text doesn't go off the top of the screen
         if (text_org.y < 0)
             text_org.y = text_size.height;
 
@@ -214,9 +222,9 @@ namespace MX::Pipe::Util {
                       color,
                       -1);
 
-        // Draw white text on top of the colored label background
+        // Draw white text on top of the colored text background
         cv::putText(image,
-                    label,
+                    text,
                     text_org,
                     font_face,
                     font_scale,

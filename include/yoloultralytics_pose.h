@@ -14,7 +14,6 @@ namespace MX {
 
           public:
             YoloUltralyticsPose(const YoloConfig& config);
-            ~YoloUltralyticsPose();
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;
@@ -52,7 +51,7 @@ namespace MX {
             int ori_h_;
 
             // misc
-            MX::Pipe::Util::ScoreManager* smgr_;
+            std::unique_ptr<MX::Pipe::Util::ScoreManager> smgr_;
         };
 
     }

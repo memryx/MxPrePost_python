@@ -5,10 +5,6 @@
 using namespace MX::Pipe;
 using namespace MX::Pipe::Util;
 
-YoloUltralyticsSegment::~YoloUltralyticsSegment() {
-    delete smgr_;
-}
-
 YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
 
     // init settings from config
@@ -26,11 +22,6 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
         }
     }
 
-    // compute padding
-    // TODO: support vertical images as well
-    if (!MX::Pipe::Util::is_horizontal_input(config.ori_width, config.ori_height))
-        return;
-
     ori_w_ = config.ori_width;
     ori_h_ = config.ori_height;
 
@@ -43,7 +34,7 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
     pad_h_ = (MODEL_H - letterbox_h_) / 2;
 
     // init score manager
-    smgr_ = new MX::Pipe::Util::ScoreManager(config.conf, config.fast_sigmoid);
+    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(config.conf, config.fast_sigmoid);
 
     // init post-process layer params
     yolo_post_layers_[0] = {.coord_port = 0,
@@ -221,11 +212,8 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             // --- STEP 7: Map points back to Original Image Space ---
             // Points 'p' are relative to the BBox crop.
             // Add the BBox top-left offset to get global coordinates.
-            int offset_x = (int)box.x_min;
-            int offset_y = (int)box.y_min;
-
             for (const auto& p : contour) {
-                mask_struct.xy.push_back({p.x + offset_x, p.y + offset_y});
+                mask_struct.xy.push_back({p.x + box.x_min, p.y + box.y_min});
             }
 
             if (!mask_struct.xy.empty()) {

@@ -80,22 +80,6 @@ namespace MX {
                 "scissors",      "teddy bear",    "hair drier",    "toothbrush",
         };
 
-        const std::vector<cv::Scalar> COCO_TEXT_COLORS = {
-                {0, 0, 0},
-                {255, 255, 255},
-                {255, 255, 255},
-                {255, 255, 255},
-                {255, 215, 0},
-        };
-
-        const std::vector<cv::Scalar> COCO_BOX_COLORS = {
-                {255, 255, 0, 0.6},
-                {26, 35, 126, 0.6},
-                {255, 50, 50, 0.6},
-                {0, 0, 0, 0.6},
-                {51, 51, 51, 0.6},
-        };
-
         struct BBox {
             float x_min;
             float y_min;
@@ -154,7 +138,7 @@ namespace MX {
         };
 
         struct Mask {
-            std::vector<Point> xy;
+            std::vector<Point2f> xy;
             int cls_id;
         };
 
