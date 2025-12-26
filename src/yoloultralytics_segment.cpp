@@ -93,11 +93,13 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         for (size_t i = 0; i < layer.height * layer.width; ++i) {
 
             // get best label and score
+            // NOTE: use inv_conf_thres here because score is still raw (not applied sigmoid yet).
+            // sigmoid is expensive and we only apply it if needed.
             float best_score;
             int best_label = MX::Pipe::Util::get_best_label(best_score,
                                                             conf_base + i * COCO_CLASS_NUMBER,
                                                             valid_classes_,
-                                                            smgr_->thres_before_sigmoid);
+                                                            smgr_->inv_conf_thres);
 
             // no label with sufficient score
             if (best_label == -1)

@@ -157,9 +157,13 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
 
         for (size_t i = 0; i < layer.height * layer.width; ++i) {
             float score = conf_base[i];
-            if (score < smgr_->thres_before_sigmoid)
+
+            // NOTE: use inv_conf_thres here because score is still raw (not applied sigmoid yet).
+            // sigmoid is expensive and we only apply it if needed.
+            if (score < smgr_->inv_conf_thres)
                 continue;
 
+            // convert score in [0,1] (e.g. apply sigmoid)
             score = smgr_->convert(score);
 
             // Get the specific anchor for this grid cell
@@ -192,7 +196,7 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
                 float kpt_conf_raw = kpt_base[offset + 2];
 
                 // Only process if keypoint confidence is high enough
-                if (kpt_conf_raw > smgr_->thres_before_sigmoid) {
+                if (kpt_conf_raw > smgr_->inv_conf_thres) {
                     // YOLOv8 Pose Decoding:
                     // 1. Multiply by 2.0 (Model output range is usually -0.5 to 1.5)
                     // 2. Add the grid center (Shift to absolute feature map position)

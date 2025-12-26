@@ -10,46 +10,57 @@ namespace MX::Pipe::Util {
 
     using namespace MX::Pipe;
 
-    // TODO: comment more clearly
+#include <algorithm>
+#include <cmath>
+
+    /**
+     * @brief ScoreManager handles confidence score thresholding and conversion.
+     * Fast Sigmoid approximation: f(x) = x / (1 + |x|)
+     */
     struct ScoreManager {
-        float conf_thres_after_sigmoid;
-        float thres_before_sigmoid;
+        float conf_thres;
+        float inv_conf_thres;
         bool fast_sigmoid;
 
-        ScoreManager(float conf_thres_after_sigmoid, bool fast_sigmoid = false) :
-            conf_thres_after_sigmoid(conf_thres_after_sigmoid), fast_sigmoid(fast_sigmoid) {
+        ScoreManager(float conf_thres_, bool fast_sigmoid_ = false) :
+            conf_thres(conf_thres_), fast_sigmoid(fast_sigmoid_) {
+            // Must initialize inv_conf_thres AFTER fast_sigmoid is set
+            inv_conf_thres = invert(conf_thres);
+        }
+
+        /**
+         * @brief Logit function (Inverse Sigmoid).
+         * Maps probability [0, 1] back to the raw model output space.
+         */
+        float invert(float p) const {
+            // Clamp p to avoid log(0) or division by zero at the boundaries
+            p = std::clamp(p, 1e-7f, 1.0f - 1e-7f);
 
             if (fast_sigmoid) {
-                // Converts a score value in [0,1] to the corresponding input for the fast-sigmoid
-                // function. The fast-sigmoid function: f(x) = x / (1 + |x|), which maps [-inf,
-                // +inf] -> [-1, 1].
-                //
-                // Steps:
-                //   1. Map conf [0,1] -> x [-1,1]
-                //   2. Return x as input for fast-sigmoid
-
-                float x = conf_thres_after_sigmoid * 2.0f - 1.0f;  // map [0,1] -> [-1,1]
-                thres_before_sigmoid = x / (1.0f - std::abs(x));   // map [-1, 1] -> [-inf, inf]
+                float x = 2.0f * p - 1.0f;         // map [0,1] -> [-1,1]
+                return x / (1.0f - std::fabs(x));  // map [-1,1] -> (-inf, inf)
             } else {
-                // x = ln(y / (1 - y))
-                thres_before_sigmoid =
-                        -logf(conf_thres_after_sigmoid / (1.0f - conf_thres_after_sigmoid));
+                // Standard Logit: x = ln(p / (1 - p))
+                return std::log(p / (1.0f - p));
             }
         }
 
+        /**
+         * @brief Sigmoid function.
+         * Maps raw model output to probability [0, 1].
+         */
         float convert(float x) const {
             if (fast_sigmoid) {
-                x = x / (1.0f + std::fabs(x));
-                return x = (x + 1.0f) * 0.5f;  // range (-1, 1) -> (0, 1)
+                // Algebraic approximation: maps (-inf, inf) to (-1, 1)
+                float res = x / (1.0f + std::fabs(x));
+                // Shift and scale to (0, 1)
+                return (res + 1.0f) * 0.5f;
             } else {
+                // Standard Logistic Sigmoid
                 return 1.0f / (1.0f + std::exp(-x));
             }
         }
     };
-
-    Eigen::MatrixXf concat_boxes(const Eigen::MatrixXf& lbox,
-                                 const Eigen::MatrixXf& mbox,
-                                 const Eigen::MatrixXf& sbox);
 
     std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres);
 

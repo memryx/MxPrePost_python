@@ -27,26 +27,6 @@ namespace {  // anonymous namespace to avoid symbol conflict
 
 namespace MX::Pipe::Util {
 
-    Eigen::MatrixXf concat_boxes(const Eigen::MatrixXf& lbox,
-                                 const Eigen::MatrixXf& mbox,
-                                 const Eigen::MatrixXf& sbox) {
-
-        // 1. Calculate total rows (N1 + N2 + N3)
-        long total_rows = lbox.rows() + mbox.rows() + sbox.rows();
-        int cols = 64;  // Fixed based on your snippet
-
-        // 2. Pre-allocate the large matrix
-        RowMatrix boxes(total_rows, cols);
-
-        // 3. Fill the matrix using block operations
-        // block(start_row, start_col, num_rows, num_cols)
-        boxes.block(0, 0, lbox.rows(), cols) = lbox;
-        boxes.block(lbox.rows(), 0, mbox.rows(), cols) = mbox;
-        boxes.block(lbox.rows() + mbox.rows(), 0, sbox.rows(), cols) = sbox;
-
-        return boxes;
-    }
-
     std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres) {
         if (boxes.empty())
             return {};
