@@ -43,10 +43,12 @@ You can configure the behavior during initialization. This sets the base configu
 Example:
 ```python
 pipe = Pipeline(
-    task="yolov8_det",          # yolovX_Y (e.g. yolov8_det, yolov9_seg, yolov11_pose, etc.)
-    conf=0.5,                   # confidence threshold
-    iou=0.5,                    # IoU threshold for NMS
-    valid_classes=[0, 2],       # filter predictions by class IDs (COCO dataset)
+    task="yolov8_det",          # [required] yolovX_Y (e.g. yolov8_det, yolov9_seg, yolov11_pose, etc.)
+    ori_width=1280,             # [required] original image width
+    ori_height=640,             # [required] original image height
+    conf=0.5,                   # [optional] confidence threshold
+    iou=0.5,                    # [optional] IoU threshold for NMS
+    valid_classes=[0, 2],       # [optional] filter predictions by class IDs (COCO dataset)
 )
 ```
 
@@ -124,3 +126,12 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
 ./yolo [--task <task>] [-d <dfp_path>] [--video_paths "cam:0,vid:video_path"] [--show]
 ```
+
+## TODO
+- [x] YOLOv8 detection / segmentation / pose estimation
+- [ ] YOLOv9 detection / segmentation / pose estimation
+- [ ] YOLOv10 detection / segmentation / pose estimation
+- [x] YOLOv11 detection / segmentation / pose estimation
+- [ ] Implement One-shot configuration for specific frame
+- [ ] Testing!
+- [ ] Maybe align with ultralytics Result format and naming, should we?
