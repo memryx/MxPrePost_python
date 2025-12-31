@@ -169,7 +169,19 @@ PYBIND11_MODULE(mxpipe, m) {
                  py::arg("conf") = 0.3,
                  py::arg("iou") = 0.4,
                  py::arg("valid_classes") = py::list(),
-                 py::arg("fast_sigmoid") = false)
+                 py::arg("fast_sigmoid") = false,
+                 R"doc(
+Create Pipeline.
+
+Args:
+  task: Task for post process. Pass yolov[8|9|10|11]_[det|seg|pose]
+  ori_width (int): Original width of the image.
+  ori_height (int): Original height of the image.
+  conf (float): Confidence score. Defalut is 0.3
+  iou (float): Intersection over Union (IoU) threshold. Defalut is 0.4
+  valid_classes (list of ints): The classes to consider. Defalut is all classes
+  fast_sigmoid (bool): Use fast sigmoid if True. Defalut is False
+)doc")
             .def("draw", &BindPipeline::draw)
             .def("preprocess", &BindPipeline::preprocess)
             .def("postprocess", &BindPipeline::postprocess);
