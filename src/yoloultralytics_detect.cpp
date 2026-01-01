@@ -10,13 +10,28 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloConfig& config) {
     // init settings from config
     iou_thres_ = config.iou;
 
+    // For Class Labels
+    if (config.class_labels.empty()) {
+
+        for (const auto& label : COCO_NAMES) {
+            class_labels_.push_back(label);
+        }
+
+    } else {
+        class_number = config.class_labels.size();
+
+        for (const auto& label : config.class_labels) {
+            class_labels_.push_back(label);
+        }
+    }
+
+    // For Valid Classes
     if (config.valid_classes.empty()) {
-        // use all classes
-        for (int i = 0; i < COCO_CLASS_NUMBER; ++i) {
+
+        for (int i = 0; i < class_number; ++i) {
             valid_classes_.push_back(i);
         }
     } else {
-        // use specified classes
         for (int cls : config.valid_classes) {
             valid_classes_.push_back(cls);
         }
@@ -89,7 +104,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
             // sigmoid is expensive and we only apply it if needed.
             float best_score;
             int best_label = MX::Pipe::Util::get_best_label(best_score,
-                                                            conf_base + i * COCO_CLASS_NUMBER,
+                                                            conf_base + i * class_number,
                                                             valid_classes_,
                                                             smgr_->inv_conf_thres);
 
@@ -119,7 +134,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
                                    coord[3],
                                    best_score,
                                    best_label,
-                                   COCO_NAMES[best_label]);
+                                   class_labels_[best_label]);
         }
     }
 

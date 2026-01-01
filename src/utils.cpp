@@ -35,8 +35,8 @@ namespace {  // anonymous namespace to avoid symbol conflict
     }
 
     // initialized once
-    const std::vector<cv::Scalar> label_colors = make_colors(TEXT_COLORS, COCO_CLASS_NUMBER);
-    const std::vector<cv::Scalar> box_colors = make_colors(BOX_COLORS, COCO_CLASS_NUMBER);
+    const std::vector<cv::Scalar> label_colors = make_colors(TEXT_COLORS, class_number);
+    const std::vector<cv::Scalar> box_colors = make_colors(BOX_COLORS, class_number);
 }
 
 namespace MX::Pipe::Util {
