@@ -132,7 +132,9 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 - [x] YOLOv9 detection / ~~segmentation~~ / ~~pose estimation~~ (no model)
 - [x] YOLOv10 detection / ~~segmentation / pose estimation~~ (no model)
 - [x] YOLOv11 detection / segmentation / pose estimation
-- [ ] Make it work for custom dataset
+- [x] Make detect tasks work for custom dataset
+- [ ] Make seg tasks work for custom dataset
+- [ ] Make pose tasks work for custom dataset
 - [ ] Implement One-shot configuration for specific frame
 - [ ] Testing!
 - [ ] Maybe align with ultralytics Result format and naming, should we?
