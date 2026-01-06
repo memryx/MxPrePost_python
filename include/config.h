@@ -57,7 +57,6 @@ namespace MX {
          * only uses 80 classes.
          */
         constexpr int COCO_CLASS_NUMBER = 80;
-        inline int class_number = COCO_CLASS_NUMBER;
         inline const char* COCO_NAMES[COCO_CLASS_NUMBER]{
                 "person",        "bicycle",       "car",           "motorbike",
                 "aeroplane",     "bus",           "train",         "truck",

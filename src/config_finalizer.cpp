@@ -36,7 +36,7 @@ YoloFinalConfig ConfigFinalizer::finalize(const YoloUserConfig& user) {
     // For Valid Classes
     if (user.valid_classes.empty()) {
 
-        for (int i = 0; i < class_number; ++i) {
+        for (int i = 0; i < final.class_labels.size(); ++i) {
             final.valid_classes.push_back(i);
         }
     } else {

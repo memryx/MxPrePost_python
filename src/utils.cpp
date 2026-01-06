@@ -5,7 +5,9 @@
 
 using namespace MX::Pipe;
 
-namespace {  // anonymous namespace to avoid symbol conflict
+namespace {  // anonymous namespace for internal linkage
+    constexpr int DEFAULT_FONT = cv::FONT_ITALIC;
+
     const std::vector<cv::Scalar> TEXT_COLORS = {
             {0, 0, 0},
             {255, 255, 255},
@@ -22,21 +24,10 @@ namespace {  // anonymous namespace to avoid symbol conflict
             {51, 51, 51, 0.6},
     };
 
-    std::vector<cv::Scalar> make_colors(const std::vector<cv::Scalar>& src_colors,
-                                        size_t class_count) {
-        std::vector<cv::Scalar> colors;
-        colors.reserve(class_count);
-
-        const size_t color_size = src_colors.size();
-        for (size_t i = 0; i < class_count; ++i) {
-            colors.push_back(src_colors[i % color_size]);
-        }
-        return colors;
+    // Helper to get color safely with modulo
+    cv::Scalar get_color(const std::vector<cv::Scalar>& palette, int id) {
+        return palette[id % palette.size()];
     }
-
-    // initialized once
-    const std::vector<cv::Scalar> label_colors = make_colors(TEXT_COLORS, class_number);
-    const std::vector<cv::Scalar> box_colors = make_colors(BOX_COLORS, class_number);
 }
 
 namespace MX::Pipe::Util {
@@ -110,8 +101,8 @@ namespace MX::Pipe::Util {
         int y_max = (int)bbox.y_max;
         int cls_id = bbox.cls_id;
         float conf = bbox.conf;
-        cv::Scalar box_color = box_colors[cls_id];
-        cv::Scalar text_color = label_colors[cls_id];
+        cv::Scalar box_color = get_color(BOX_COLORS, cls_id);
+        cv::Scalar text_color = get_color(TEXT_COLORS, cls_id);
 
         double font_scale = ((double)image.rows / 640.0);
         double bbox_thickness = font_scale * 3;
@@ -190,7 +181,7 @@ namespace MX::Pipe::Util {
 
         // 2. Fill the polygon (Mask)
         std::vector<std::vector<cv::Point>> contours = {cv_points};
-        cv::Scalar color = box_colors[mask.cls_id];
+        cv::Scalar color = get_color(BOX_COLORS, mask.cls_id);
         cv::fillPoly(overlay, contours, color);
 
         // Blend the mask into the original image
@@ -228,7 +219,7 @@ namespace MX::Pipe::Util {
                     text_org,
                     font_face,
                     font_scale,
-                    label_colors[mask.cls_id],
+                    get_color(TEXT_COLORS, mask.cls_id),
                     thickness);
 
         // Optional: Draw the contour outline
