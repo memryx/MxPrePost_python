@@ -77,17 +77,10 @@ class BindPipeline {
         config.fast_sigmoid = fast_sigmoid;
 
         // convert valid_classes vector to unordered_set
-        // for (const auto& cls : valid_classes) {
-        //     config.valid_classes.insert(cls);
-        // }
         config.valid_classes =
                 std::unordered_set<int>(std::make_move_iterator(valid_classes.begin()),
                                         std::make_move_iterator(valid_classes.end()));
 
-        // convert class_labels vector to unordered_set
-        // for (const auto& cls : class_labels) {
-        //     config.class_labels.insert(cls);
-        // }
         config.class_labels = std::move(class_labels);
 
         // create pipeline using factory method

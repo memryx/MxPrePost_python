@@ -43,12 +43,13 @@ You can configure the behavior during initialization. This sets the base configu
 Example:
 ```python
 pipe = Pipeline(
-    task="yolov8_det",          # [required] yolovX_Y (e.g. yolov8_det, yolov9_seg, yolov11_pose, etc.)
+    task="yolov8_det",          # [required] yolovX_Y (e.g. yolov8_det, yolov8_seg, yolov11_pose, etc.)
     ori_width=1280,             # [required] original image width
     ori_height=640,             # [required] original image height
     conf=0.5,                   # [optional] confidence threshold
     iou=0.5,                    # [optional] IoU threshold for NMS
     valid_classes=[0, 2],       # [optional] filter predictions by class IDs (COCO dataset)
+    class_labels=["person", "bicycle", ...] # [optional] default to COCO
 )
 ```
 
@@ -114,7 +115,7 @@ ln -sv ../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
 python run.py [--task <task>] [-d <onnx_model>] [--video_paths <video>] [--show] [--old_bind]
 ```
 Notes:
-- `--task`: yolovX_Y (e.g. yolov8_det, yolov9_seg, yolov11_pose, etc.)
+- `--task`: yolovX_Y (e.g. yolov8_det, yolov8_seg, yolov11_pose, etc.)
 - `--old_bind`: Use legacy accl binding (MultiStreamAsyncAccl)
 - `--show`: Display results
 
@@ -138,5 +139,6 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 - [ ] Implement One-shot configuration for specific frame
 - [ ] Testing!
 - [ ] Maybe align with ultralytics Result format and naming, should we?
+- [ ] Complete memryx tutorial
 
 (yolov9c/yolov9e segmentation do not map to mx3)
