@@ -159,7 +159,7 @@ namespace MX {
             std::vector<std::vector<Keypoint>> keypoints;
         };
 
-        struct YoloConfig {
+        struct YoloUserConfig {
             int ori_width = -1;                     // [Required] Original image width
             int ori_height = -1;                    // [Required] Original image height
             float conf = 0.3f;                      // [Optional] Confidence threshold
@@ -167,6 +167,23 @@ namespace MX {
             std::unordered_set<int> valid_classes;  // [Optional] List of valid class names
             std::vector<std::string> class_labels;  // [Optional] List of valid class names
             bool fast_sigmoid = false;              // [Optional] Use fast sigmoid or not
+        };
+
+        struct YoloFinalConfig {
+            int ori_width;
+            int ori_height;
+            float conf;
+            float iou;
+            std::vector<int> valid_classes;
+            std::vector<std::string> class_labels;
+            bool fast_sigmoid;
+
+            // extra params for compared to YoloUserConfig
+            float letterbox_ratio;
+            int letterbox_w;
+            int letterbox_h;
+            int pad_w;
+            int pad_h;
         };
     }
 }

@@ -1,39 +1,17 @@
 #include "yoloultralytics_pose.h"
 
+#include "config_finalizer.h"
 #include "utils.h"
 
 using namespace MX::Pipe;
 
-YoloUltralyticsPose::YoloUltralyticsPose(const YoloConfig& config) {
+YoloUltralyticsPose::YoloUltralyticsPose(const YoloUserConfig& user_cfg) {
 
     // init settings from config
-    iou_thres_ = config.iou;
-
-    if (config.valid_classes.empty()) {
-        // use all classes
-        for (int i = 0; i < COCO_CLASS_NUMBER; ++i) {
-            valid_classes_.push_back(i);
-        }
-    } else {
-        // use specified classes
-        for (int cls : config.valid_classes) {
-            valid_classes_.push_back(cls);
-        }
-    }
-
-    ori_w_ = config.ori_width;
-    ori_h_ = config.ori_height;
-
-    // letterbox params
-    letterbox_ratio_ = (float)MX::Pipe::MODEL_W / ori_w_;
-    letterbox_w_ = ori_w_ * letterbox_ratio_;
-    letterbox_h_ = ori_h_ * letterbox_ratio_;
-
-    pad_w_ = (MX::Pipe::MODEL_W - letterbox_w_) / 2;
-    pad_h_ = (MX::Pipe::MODEL_H - letterbox_h_) / 2;
+    cfg_ = ConfigFinalizer::finalize(user_cfg);
 
     // init score manager
-    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(config.conf, config.fast_sigmoid);
+    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
     // init post-process layer params
     yolo_post_layers_[0] = {
@@ -75,7 +53,8 @@ YoloUltralyticsPose::YoloUltralyticsPose(const YoloConfig& config) {
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
-    return MX::Pipe::Util::preprocess(image, letterbox_w_, letterbox_h_, pad_w_, pad_h_);
+    return MX::Pipe::Util::preprocess(
+            image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
 }
 
 void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
@@ -154,10 +133,10 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
                                                              layer.stride);
 
             // Convert BBox to original image scale
-            float x1 = (coord[0] - pad_w_) / letterbox_ratio_;
-            float y1 = (coord[1] - pad_h_) / letterbox_ratio_;
-            float x2 = (coord[2] - pad_w_) / letterbox_ratio_;
-            float y2 = (coord[3] - pad_h_) / letterbox_ratio_;
+            float x1 = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
+            float y1 = (coord[1] - cfg_.pad_h) / cfg_.letterbox_ratio;
+            float x2 = (coord[2] - cfg_.pad_w) / cfg_.letterbox_ratio;
+            float y2 = (coord[3] - cfg_.pad_h) / cfg_.letterbox_ratio;
 
             all_boxes.emplace_back(x1, y1, x2, y2, score, 0, "person");
 
@@ -184,8 +163,8 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
                     float kpt_y = (raw_y * 2.0f + (anchor.y - 0.5f)) * layer.stride;
 
                     // 4. Recovery from Letterbox (Scale to original image pixels)
-                    kpt_x = (kpt_x - pad_w_) / letterbox_ratio_;
-                    kpt_y = (kpt_y - pad_h_) / letterbox_ratio_;
+                    kpt_x = (kpt_x - cfg_.pad_w) / cfg_.letterbox_ratio;
+                    kpt_y = (kpt_y - cfg_.pad_h) / cfg_.letterbox_ratio;
 
                     float kpt_conf = smgr_->convert(kpt_conf_raw);
                     kpts_per_box.emplace_back(kpt_x, kpt_y, kpt_conf);
@@ -199,7 +178,7 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
     }
 
     // apply NMS
-    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, iou_thres_);
+    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, cfg_.iou);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());

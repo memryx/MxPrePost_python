@@ -6,7 +6,7 @@
 
 using namespace MX::Pipe;
 
-Pipeline* Pipeline::create(const std::string& task, const YoloConfig& config) {
+Pipeline* Pipeline::create(const std::string& task, const YoloUserConfig& config) {
     if (task == "yolov8_det") {
         return new YoloUltralyticsDetect(config);
     } else if (task == "yolov8_seg") {

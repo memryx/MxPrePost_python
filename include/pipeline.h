@@ -13,7 +13,7 @@ namespace MX {
             virtual void draw(cv::Mat& image, const Result& result) = 0;
 
             // Factory method
-            static Pipeline* create(const std::string& task, const YoloConfig& config);
+            static Pipeline* create(const std::string& task, const YoloUserConfig& config);
         };
 
     }

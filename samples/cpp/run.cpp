@@ -233,7 +233,7 @@ class YoloApp {
         initVcap(vcap, video_src, src_is_cam);
 
         // init pipeline object
-        YoloConfig config;
+        YoloUserConfig config;
         config.ori_width = (int)vcap.get(cv::CAP_PROP_FRAME_WIDTH);
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
         config.conf = 0.3f;

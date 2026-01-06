@@ -1,40 +1,18 @@
 #include "yoloultralytics_segment.h"
 
+#include "config_finalizer.h"
 #include "utils.h"
 
 using namespace MX::Pipe;
 using namespace MX::Pipe::Util;
 
-YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
+YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloUserConfig& user_cfg) {
 
     // init settings from config
-    iou_thres_ = config.iou;
-
-    if (config.valid_classes.empty()) {
-        // use all classes
-        for (int i = 0; i < COCO_CLASS_NUMBER; ++i) {
-            valid_classes_.push_back(i);
-        }
-    } else {
-        // use specified classes
-        for (int cls : config.valid_classes) {
-            valid_classes_.push_back(cls);
-        }
-    }
-
-    ori_w_ = config.ori_width;
-    ori_h_ = config.ori_height;
-
-    // letterbox params
-    letterbox_ratio_ = (float)MODEL_W / ori_w_;
-    letterbox_w_ = ori_w_ * letterbox_ratio_;
-    letterbox_h_ = ori_h_ * letterbox_ratio_;
-
-    pad_w_ = (MODEL_W - letterbox_w_) / 2;
-    pad_h_ = (MODEL_H - letterbox_h_) / 2;
+    cfg_ = ConfigFinalizer::finalize(user_cfg);
 
     // init score manager
-    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(config.conf, config.fast_sigmoid);
+    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
     // init post-process layer params
     yolo_post_layers_[0] = {.coord_port = 0,
@@ -60,7 +38,8 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloConfig& config) {
 }
 
 cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
-    return MX::Pipe::Util::preprocess(image, letterbox_w_, letterbox_h_, pad_w_, pad_h_);
+    return MX::Pipe::Util::preprocess(
+            image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
 }
 
 void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
@@ -88,10 +67,11 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             // NOTE: use inv_conf_thres here because score is still raw (not applied sigmoid yet).
             // sigmoid is expensive and we only apply it if needed.
             float best_score;
-            int best_label = MX::Pipe::Util::get_best_label(best_score,
-                                                            conf_base + i * COCO_CLASS_NUMBER,
-                                                            valid_classes_,
-                                                            smgr_->inv_conf_thres);
+            int best_label =
+                    MX::Pipe::Util::get_best_label(best_score,
+                                                   conf_base + i * cfg_.valid_classes.size(),
+                                                   cfg_.valid_classes,
+                                                   smgr_->inv_conf_thres);
 
             // no label with sufficient score
             if (best_label == -1)
@@ -107,10 +87,10 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
                                                              layer.stride);
 
             // convert to raw bbox coords
-            coord[0] = (coord[0] - pad_w_) / letterbox_ratio_;
-            coord[1] = (coord[1] - pad_h_) / letterbox_ratio_;
-            coord[2] = (coord[2] - pad_w_) / letterbox_ratio_;
-            coord[3] = (coord[3] - pad_h_) / letterbox_ratio_;
+            coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
+            coord[1] = (coord[1] - cfg_.pad_h) / cfg_.letterbox_ratio;
+            coord[2] = (coord[2] - cfg_.pad_w) / cfg_.letterbox_ratio;
+            coord[3] = (coord[3] - cfg_.pad_h) / cfg_.letterbox_ratio;
 
             // store bbox
             all_boxes.emplace_back(coord[0],
@@ -119,7 +99,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
                                    coord[3],
                                    best_score,
                                    best_label,
-                                   COCO_NAMES[best_label]);
+                                   cfg_.class_labels[best_label]);
 
             // store mask coef pointer
             all_mask_coefs.emplace_back(mask_coef_base + i * MASK_FMAP_SIZE);
@@ -127,7 +107,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     }
 
     // apply NMS
-    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, iou_thres_);
+    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, cfg_.iou);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());
@@ -164,10 +144,10 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
 
         // --- STEP 1: Get BBox in Model Space (undo the mapping to original image) ---
         // We need the box relative to the 640x640 letterbox to crop the 160x160 proto correctly
-        float m_x1 = box.x_min * letterbox_ratio_ + pad_w_;
-        float m_y1 = box.y_min * letterbox_ratio_ + pad_h_;
-        float m_x2 = box.x_max * letterbox_ratio_ + pad_w_;
-        float m_y2 = box.y_max * letterbox_ratio_ + pad_h_;
+        float m_x1 = box.x_min * cfg_.letterbox_ratio + cfg_.pad_w;
+        float m_y1 = box.y_min * cfg_.letterbox_ratio + cfg_.pad_h;
+        float m_x2 = box.x_max * cfg_.letterbox_ratio + cfg_.pad_w;
+        float m_y2 = box.y_max * cfg_.letterbox_ratio + cfg_.pad_h;
 
         // --- STEP 2: Scale BBox to Proto Space (160x160) ---
         int px1 = std::clamp((int)(m_x1 * model_to_proto_x), 0, MASK_PROTO_W - 1);

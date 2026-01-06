@@ -69,7 +69,7 @@ class BindPipeline {
                  std::vector<std::string> class_labels,
                  bool fast_sigmoid) {
 
-        YoloConfig config;
+        YoloUserConfig config;
         config.ori_width = ori_width;
         config.ori_height = ori_height;
         config.conf = conf;
