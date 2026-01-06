@@ -57,7 +57,8 @@ namespace MX {
          * only uses 80 classes.
          */
         constexpr int COCO_CLASS_NUMBER = 80;
-        inline const char* COCO_NAMES[COCO_CLASS_NUMBER] = {
+        inline int class_number = COCO_CLASS_NUMBER;
+        inline const char* COCO_NAMES[COCO_CLASS_NUMBER]{
                 "person",        "bicycle",       "car",           "motorbike",
                 "aeroplane",     "bus",           "train",         "truck",
                 "boat",          "traffic light", "fire hydrant",  "stop sign",
@@ -164,6 +165,7 @@ namespace MX {
             float conf = 0.3f;                      // [Optional] Confidence threshold
             float iou = 0.4f;                       // [Optional] IOU threshold for NMS
             std::unordered_set<int> valid_classes;  // [Optional] List of valid class names
+            std::vector<std::string> class_labels;  // [Optional] List of valid class names
             bool fast_sigmoid = false;              // [Optional] Use fast sigmoid or not
         };
     }

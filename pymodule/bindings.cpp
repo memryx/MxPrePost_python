@@ -66,6 +66,7 @@ class BindPipeline {
                  float conf,
                  float iou,
                  std::vector<int> valid_classes,
+                 std::vector<std::string> class_labels,
                  bool fast_sigmoid) {
 
         YoloConfig config;
@@ -76,9 +77,18 @@ class BindPipeline {
         config.fast_sigmoid = fast_sigmoid;
 
         // convert valid_classes vector to unordered_set
-        for (const auto& cls : valid_classes) {
-            config.valid_classes.insert(cls);
-        }
+        // for (const auto& cls : valid_classes) {
+        //     config.valid_classes.insert(cls);
+        // }
+        config.valid_classes =
+                std::unordered_set<int>(std::make_move_iterator(valid_classes.begin()),
+                                        std::make_move_iterator(valid_classes.end()));
+
+        // convert class_labels vector to unordered_set
+        // for (const auto& cls : class_labels) {
+        //     config.class_labels.insert(cls);
+        // }
+        config.class_labels = std::move(class_labels);
 
         // create pipeline using factory method
         pipeline_ = Pipeline::create(task, config);
@@ -162,14 +172,34 @@ PYBIND11_MODULE(mxpipe, m) {
 
     // Pipeline class
     py::class_<BindPipeline>(m, "Pipeline")
-            .def(py::init<std::string, int, int, float, float, std::vector<int>, bool>(),
+            .def(py::init<std::string,
+                          int,
+                          int,
+                          float,
+                          float,
+                          std::vector<int>,
+                          std::vector<std::string>,
+                          bool>(),
                  py::arg("task"),
                  py::arg("ori_width"),
                  py::arg("ori_height"),
                  py::arg("conf") = 0.3,
                  py::arg("iou") = 0.4,
                  py::arg("valid_classes") = py::list(),
-                 py::arg("fast_sigmoid") = false)
+                 py::arg("class_labels") = py::list(),
+                 py::arg("fast_sigmoid") = false,
+                 R"doc(
+Create Pipeline.
+
+Args:
+  task: Task for post process. Pass yolov[8|9|10|11]_[det|seg|pose]
+  ori_width (int): Original width of the image.
+  ori_height (int): Original height of the image.
+  conf (float): Confidence score. Defalut is 0.3
+  iou (float): Intersection over Union (IoU) threshold. Defalut is 0.4
+  valid_classes (list of ints): The classes to consider. Defalut is all classes
+  fast_sigmoid (bool): Use fast sigmoid if True. Defalut is False
+)doc")
             .def("draw", &BindPipeline::draw)
             .def("preprocess", &BindPipeline::preprocess)
             .def("postprocess", &BindPipeline::postprocess);

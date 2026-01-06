@@ -35,6 +35,7 @@ namespace MX {
             // yolo config
             float iou_thres_;
             std::vector<int> valid_classes_;
+            std::vector<std::string> class_labels_;
 
             // width and height
             float letterbox_ratio_;
