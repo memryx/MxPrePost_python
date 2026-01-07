@@ -12,7 +12,7 @@ namespace MX {
         class YoloUltralyticsSegment : public MX::Pipe::Pipeline {
 
           public:
-            YoloUltralyticsSegment(const YoloUserConfig& config);
+            YoloUltralyticsSegment(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;

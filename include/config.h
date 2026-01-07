@@ -10,9 +10,6 @@ namespace MX {
     namespace Pipe {
 
         constexpr int TOTAL_ANCHORS = 8400;  // Total anchors across all YOLO layers
-        constexpr int MODEL_W = 640;         // Model input width to accelerator
-        constexpr int MODEL_H = 640;         // Model input height to accelerator
-        constexpr int MODEL_CH = 3;          // Model input channel to accelerator
         constexpr int COORD_FMAP_SIZE = 64;  // Number of feature map channels for bbox coordinates
         constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coefficients
         constexpr int MASK_PROTO_H = 160;   // Mask proto height
@@ -190,6 +187,9 @@ namespace MX {
             int letterbox_h;
             int pad_w;
             int pad_h;
+
+            int model_w;
+            int model_h;
         };
     }
 }

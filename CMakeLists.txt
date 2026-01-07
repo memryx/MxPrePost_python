@@ -19,7 +19,7 @@ find_package(OpenCV REQUIRED)
 
 add_library(mxpipe SHARED ${local_src})
 
-target_link_libraries(mxpipe ${OpenCV_LIBS})
+target_link_libraries(mxpipe ${OpenCV_LIBS} mx_accl)
 
 target_include_directories(mxpipe PRIVATE 
     ${OpenCV_INCLUDE_DIRS}

@@ -75,5 +75,6 @@ namespace MX::Pipe::Util {
                        const std::vector<int>& valid_classes,
                        float score_thres);
 
-    std::array<float, 4> dfl(float* coord_buf, int row, int col, int stride);
+    std::array<float, 4>
+    dfl(float* coord_buf, int row, int col, int stride, int model_w, int model_h);
 }

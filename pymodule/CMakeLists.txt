@@ -37,4 +37,4 @@ target_include_directories(mxpipe PRIVATE
                            /usr/include/
                            ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
-target_link_libraries(mxpipe PRIVATE ${OpenCV_LIBS} ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmxpipe.so)
+target_link_libraries(mxpipe PRIVATE mx_accl ${OpenCV_LIBS} ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmxpipe.so)

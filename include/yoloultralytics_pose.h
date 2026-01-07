@@ -13,7 +13,7 @@ namespace MX {
         class YoloUltralyticsPose : public MX::Pipe::Pipeline {
 
           public:
-            YoloUltralyticsPose(const YoloUserConfig& config);
+            YoloUltralyticsPose(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;

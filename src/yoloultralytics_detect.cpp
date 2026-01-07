@@ -6,10 +6,11 @@
 using namespace MX::Pipe;
 using namespace MX::Pipe::Util;
 
-YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloUserConfig& user_cfg) {
+YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
+                                             const YoloUserConfig& user_cfg) {
 
     // init settings from config
-    cfg_ = ConfigFinalizer::finalize(user_cfg);
+    cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
 
     // init score manager
     smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
@@ -18,24 +19,24 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(const YoloUserConfig& user_cfg) {
     yolo_post_layers_[0] = {
             .coord_port = 0,
             .conf_port = 1,
-            .width = MODEL_W / 8,   // L0_HW, 640 / 8 = 80
-            .height = MODEL_H / 8,  // L0_HW, 640 / 8 = 80
+            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
+            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
             .stride = 8,
     };
 
     yolo_post_layers_[1] = {
             .coord_port = 2,
             .conf_port = 3,
-            .width = MODEL_W / 16,   // L1_HW, 640 / 16 = 40
-            .height = MODEL_H / 16,  // L1_HW, 640 / 16 = 40
+            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
+            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
             .stride = 16,
     };
 
     yolo_post_layers_[2] = {
             .coord_port = 4,
             .conf_port = 5,
-            .width = MODEL_W / 32,   // L2_HW, 640 / 32 = 20
-            .height = MODEL_H / 32,  // L2_HW, 640 / 32 = 20
+            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
+            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
             .stride = 32,
     };
 }
@@ -84,7 +85,9 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
             std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
                                                              i / layer.width /* row */,
                                                              i % layer.width /* col */,
-                                                             layer.stride);
+                                                             layer.stride,
+                                                             cfg_.model_w,
+                                                             cfg_.model_h);
 
             // convert to raw bbox coords
             coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;

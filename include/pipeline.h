@@ -1,6 +1,11 @@
 #pragma once
 #include "config.h"
 
+// Forward declaration
+namespace MX::Runtime {
+    class MxAccl;
+}
+
 namespace MX {
     namespace Pipe {
         class Pipeline {
@@ -13,7 +18,9 @@ namespace MX {
             virtual void draw(cv::Mat& image, const Result& result) = 0;
 
             // Factory method
-            static Pipeline* create(const std::string& task, const YoloUserConfig& config);
+            static Pipeline* create(MX::Runtime::MxAccl* accl,
+                                    const std::string& task,
+                                    const YoloUserConfig& config);
         };
 
     }

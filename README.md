@@ -53,6 +53,9 @@ pipe = Pipeline(
 )
 ```
 
+NOTE: 
+- If application is run with multi streams, each stream has to share the same `ori_width` and `ori_height`.
+
 ### 2. Per frame override (One-shot configuration)
 
 `preprocess()` and `postprocess()` accepts multiple arguments that can be passed at processing time to override the defaults.

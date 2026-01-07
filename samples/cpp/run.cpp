@@ -240,7 +240,7 @@ class YoloApp {
         config.iou = 0.4f;
         // config.classmap_path = "./labels.txt";
         // config.valid_classes = {0};
-        pipe_ = MX::Pipe::Pipeline::create(task, config);
+        pipe_ = MX::Pipe::Pipeline::create(accl, task, config);
 
         // Get model info and allocate output buffer
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);

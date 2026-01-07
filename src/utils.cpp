@@ -254,7 +254,8 @@ namespace MX::Pipe::Util {
     }
 
     /* DFL (Distribution Focal Loss) Decoding */
-    std::array<float, 4> dfl(float* coord_buf, int row, int col, int stride) {
+    std::array<float, 4>
+    dfl(float* coord_buf, int row, int col, int stride, int model_w, int model_h) {
         // 1. DFL (Distribution Focal Loss) Decoding
         // YOLO outputs 4 distances (left, top, right, bottom) as probability distributions.
         // We compute the expected value (weighted sum) for each side.
@@ -292,10 +293,10 @@ namespace MX::Pipe::Util {
         float y2 = (row + 0.5f + dists[3]) * stride;
 
         // make sure coords are within letterbox size
-        x1 = std::clamp(x1, 0.0f, (float)MX::Pipe::MODEL_W - 1.f);
-        y1 = std::clamp(y1, 0.0f, (float)MX::Pipe::MODEL_H - 1.f);
-        x2 = std::clamp(x2, 0.0f, (float)MX::Pipe::MODEL_W - 1.f);
-        y2 = std::clamp(y2, 0.0f, (float)MX::Pipe::MODEL_H - 1.f);
+        x1 = std::clamp(x1, 0.0f, (float)model_w - 1.f);
+        y1 = std::clamp(y1, 0.0f, (float)model_h - 1.f);
+        x2 = std::clamp(x2, 0.0f, (float)model_w - 1.f);
+        y2 = std::clamp(y2, 0.0f, (float)model_h - 1.f);
 
         // coords for letterbox
         return {x1, y1, x2, y2};

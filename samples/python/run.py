@@ -60,17 +60,6 @@ class YoloApp:
             vidcap = cv2.VideoCapture(video_path)
             self.streams.append(vidcap)
 
-        # init MXPipe pipeline
-        self.pipe = mxpipe.Pipeline(
-            task=args.task,
-            ori_width=int(vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-            conf=0.3,
-            iou=0.4,
-            # classmap_path="./labels.txt",
-            # valid_classes=[0],
-        )
-
         # Start display thread
         if self.show:
             self.display_thread = Thread(target=self.display)
@@ -89,9 +78,22 @@ class YoloApp:
             accl = memryx.MultiStreamAsyncAccl(
                 dfp=self.dfp, use_model_shape=(False, False)
             )
+            
+            # init MXPipe pipeline
+            self.pipe = mxpipe.Pipeline(
+                accl=accl,
+                task=args.task,
+                ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
+                ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                conf=0.3,
+                iou=0.4,
+                # valid_classes=[0],
+            )
+            
             accl.connect_streams(
                 self.in_callback_old_bind, self.out_callback_old_bind, self.num_streams
             )
+            
             accl.wait()
 
         else:
@@ -105,6 +107,17 @@ class YoloApp:
             for i in range(self.num_streams):
                 accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
 
+            # init MXPipe pipeline
+            self.pipe = mxpipe.Pipeline(
+                accl=accl,
+                task=args.task,
+                ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
+                ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                conf=0.3,
+                iou=0.4,
+                # valid_classes=[0],
+            )
+            
             accl.start()
             accl.wait()
 

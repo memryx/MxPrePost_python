@@ -7,6 +7,8 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/ndarraytypes.h>
 
+#include "bindings.h"
+#include "memx/accl/MxAccl.h"
 #include "pipeline.h"
 
 #include <opencv2/opencv.hpp>
@@ -60,7 +62,8 @@ py::array mat_to_numpy(const cv::Mat& mat) {
 
 class BindPipeline {
   public:
-    BindPipeline(const std::string& task,
+    BindPipeline(py::object pyaccl,
+                 const std::string& task,
                  int ori_width,
                  int ori_height,
                  float conf,
@@ -83,8 +86,13 @@ class BindPipeline {
 
         config.classmap_path = std::move(classmap_path);
 
+        // get PyMxAccl ptr from pyaccl
+        py::object ptr = pyaccl.attr("get_raw_ptr")();
+        uintptr_t addr = ptr.cast<uintptr_t>();
+        PyMxAccl* accl = reinterpret_cast<PyMxAccl*>(addr);
+
         // create pipeline using factory method
-        pipeline_ = Pipeline::create(task, config);
+        pipeline_ = Pipeline::create(accl, task, config);
     }
 
     ~BindPipeline() {
@@ -165,7 +173,8 @@ PYBIND11_MODULE(mxpipe, m) {
 
     // Pipeline class
     py::class_<BindPipeline>(m, "Pipeline")
-            .def(py::init<std::string,
+            .def(py::init<py::object,
+                          std::string,
                           int,
                           int,
                           float,
@@ -173,12 +182,13 @@ PYBIND11_MODULE(mxpipe, m) {
                           std::string,
                           std::vector<int>,
                           bool>(),
+                 py::arg("accl"),
                  py::arg("task"),
                  py::arg("ori_width"),
                  py::arg("ori_height"),
                  py::arg("conf") = 0.3,
                  py::arg("iou") = 0.4,
-                 py::arg("classmap_path"),
+                 py::arg("classmap_path") = "",
                  py::arg("valid_classes") = py::list(),
                  py::arg("fast_sigmoid") = false,
                  R"doc(

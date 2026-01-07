@@ -1,7 +1,8 @@
 #include "config_finalizer.h"
 
-#include <fstream>
+#include "memx/accl/MxAccl.h"
 
+#include <fstream>
 using namespace MX::Pipe;
 
 namespace {  // anonymous namespace for helper functions
@@ -27,7 +28,7 @@ namespace {  // anonymous namespace for helper functions
     }
 }
 
-YoloFinalConfig ConfigFinalizer::finalize(const YoloUserConfig& user) {
+YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloUserConfig& user) {
     YoloFinalConfig final;
 
     // Required parameters
@@ -75,15 +76,20 @@ YoloFinalConfig ConfigFinalizer::finalize(const YoloUserConfig& user) {
     final.ori_width = user.ori_width;
     final.ori_height = user.ori_height;
 
+    // Get model input dimensions
+    MX::Types::MxModelInfo model_info = accl->get_model_info(0);
+    final.model_h = model_info.in_featuremap_shapes[0][0];
+    final.model_w = model_info.in_featuremap_shapes[0][1];
+
     // letterbox params
-    final.letterbox_ratio =
-            std::min((float)MODEL_W / user.ori_width, (float)MODEL_H / user.ori_height);
+    final.letterbox_ratio = std::min((float) final.model_w / final.ori_width,
+                                     (float) final.model_h / final.ori_height);
 
     final.letterbox_w = final.ori_width * final.letterbox_ratio;
     final.letterbox_h = final.ori_height * final.letterbox_ratio;
 
-    final.pad_w = (MODEL_W - final.letterbox_w) / 2;
-    final.pad_h = (MODEL_H - final.letterbox_h) / 2;
+    final.pad_w = (final.model_w - final.letterbox_w) / 2;
+    final.pad_h = (final.model_h - final.letterbox_h) / 2;
 
     return final;
 }

@@ -6,10 +6,11 @@
 using namespace MX::Pipe;
 using namespace MX::Pipe::Util;
 
-YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloUserConfig& user_cfg) {
+YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
+                                               const YoloUserConfig& user_cfg) {
 
     // init settings from config
-    cfg_ = ConfigFinalizer::finalize(user_cfg);
+    cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
 
     // init score manager
     smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
@@ -18,22 +19,22 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(const YoloUserConfig& user_cfg) {
     yolo_post_layers_[0] = {.coord_port = 0,
                             .conf_port = 1,
                             .mask_coef_port = 3,
-                            .width = MODEL_W / 8,   // L0_HW, 640 / 8 = 80
-                            .height = MODEL_H / 8,  // L0_HW, 640 / 8 = 80
+                            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
+                            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
                             .stride = 8};
 
     yolo_post_layers_[1] = {.coord_port = 4,
                             .conf_port = 5,
                             .mask_coef_port = 6,
-                            .width = MODEL_W / 16,   // L1_HW, 640 / 16 = 40
-                            .height = MODEL_H / 16,  // L1_HW, 640 / 16 = 40
+                            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
+                            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
                             .stride = 16};
 
     yolo_post_layers_[2] = {.coord_port = 7,
                             .conf_port = 8,
                             .mask_coef_port = 9,
-                            .width = MODEL_W / 32,   // L2_HW, 640 / 32 = 20
-                            .height = MODEL_H / 32,  // L2_HW, 640 / 32 = 20
+                            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
+                            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
                             .stride = 32};
 }
 
@@ -84,7 +85,9 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
                                                              i / layer.width /* row */,
                                                              i % layer.width /* col */,
-                                                             layer.stride);
+                                                             layer.stride,
+                                                             cfg_.model_w,
+                                                             cfg_.model_h);
 
             // convert to raw bbox coords
             coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
@@ -136,8 +139,8 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     cv::Mat mask_stack = raw_masks.reshape((int)num_keep, MASK_PROTO_H);
 
     // Factors to move from Model Space (640) to Proto Space (160)
-    float model_to_proto_x = (float)MASK_PROTO_W / MODEL_W;
-    float model_to_proto_y = (float)MASK_PROTO_H / MODEL_H;
+    float model_to_proto_x = (float)MASK_PROTO_W / cfg_.model_w;
+    float model_to_proto_y = (float)MASK_PROTO_H / cfg_.model_h;
 
     for (int i = 0; i < num_keep; ++i) {
         const BBox& box = result.boxes[i];

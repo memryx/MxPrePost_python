@@ -5,10 +5,11 @@
 
 using namespace MX::Pipe;
 
-YoloUltralyticsPose::YoloUltralyticsPose(const YoloUserConfig& user_cfg) {
+YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
+                                         const YoloUserConfig& user_cfg) {
 
     // init settings from config
-    cfg_ = ConfigFinalizer::finalize(user_cfg);
+    cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
 
     // init score manager
     smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
@@ -18,8 +19,8 @@ YoloUltralyticsPose::YoloUltralyticsPose(const YoloUserConfig& user_cfg) {
             .coord_port = 0,
             .conf_port = 1,
             .keypt_port = 2,
-            .width = MX::Pipe::MODEL_W / 8,   // L0_HW, 640 / 8 = 80
-            .height = MX::Pipe::MODEL_H / 8,  // L0_HW, 640 / 8 = 80
+            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
+            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
             .stride = 8,
     };
 
@@ -27,8 +28,8 @@ YoloUltralyticsPose::YoloUltralyticsPose(const YoloUserConfig& user_cfg) {
             .coord_port = 3,
             .conf_port = 4,
             .keypt_port = 5,
-            .width = MX::Pipe::MODEL_W / 16,   // L1_HW, 640 / 16 = 40
-            .height = MX::Pipe::MODEL_H / 16,  // L1_HW, 640 / 16 = 40
+            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
+            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
             .stride = 16,
     };
 
@@ -36,8 +37,8 @@ YoloUltralyticsPose::YoloUltralyticsPose(const YoloUserConfig& user_cfg) {
             .coord_port = 6,
             .conf_port = 7,
             .keypt_port = 8,
-            .width = MX::Pipe::MODEL_W / 32,   // L2_HW, 640 / 32 = 20
-            .height = MX::Pipe::MODEL_H / 32,  // L2_HW, 640 / 32 = 20
+            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
+            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
             .stride = 32,
     };
 
@@ -130,7 +131,9 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
             std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
                                                              i / layer.width /* row */,
                                                              i % layer.width /* col */,
-                                                             layer.stride);
+                                                             layer.stride,
+                                                             cfg_.model_w,
+                                                             cfg_.model_h);
 
             // Convert BBox to original image scale
             float x1 = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
