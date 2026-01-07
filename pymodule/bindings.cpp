@@ -65,8 +65,8 @@ class BindPipeline {
                  int ori_height,
                  float conf,
                  float iou,
+                 std::string classmap_path,
                  std::vector<int> valid_classes,
-                 std::vector<std::string> class_labels,
                  bool fast_sigmoid) {
 
         YoloUserConfig config;
@@ -81,7 +81,7 @@ class BindPipeline {
                 std::unordered_set<int>(std::make_move_iterator(valid_classes.begin()),
                                         std::make_move_iterator(valid_classes.end()));
 
-        config.class_labels = std::move(class_labels);
+        config.classmap_path = std::move(classmap_path);
 
         // create pipeline using factory method
         pipeline_ = Pipeline::create(task, config);
@@ -170,16 +170,16 @@ PYBIND11_MODULE(mxpipe, m) {
                           int,
                           float,
                           float,
+                          std::string,
                           std::vector<int>,
-                          std::vector<std::string>,
                           bool>(),
                  py::arg("task"),
                  py::arg("ori_width"),
                  py::arg("ori_height"),
                  py::arg("conf") = 0.3,
                  py::arg("iou") = 0.4,
+                 py::arg("classmap_path"),
                  py::arg("valid_classes") = py::list(),
-                 py::arg("class_labels") = py::list(),
                  py::arg("fast_sigmoid") = false,
                  R"doc(
 Create Pipeline.

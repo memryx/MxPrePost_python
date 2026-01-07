@@ -159,13 +159,20 @@ namespace MX {
         };
 
         struct YoloUserConfig {
-            int ori_width = -1;                     // [Required] Original image width
-            int ori_height = -1;                    // [Required] Original image height
-            float conf = 0.3f;                      // [Optional] Confidence threshold
-            float iou = 0.4f;                       // [Optional] IOU threshold for NMS
-            std::unordered_set<int> valid_classes;  // [Optional] List of valid class names
-            std::vector<std::string> class_labels;  // [Optional] List of valid class names
-            bool fast_sigmoid = false;              // [Optional] Use fast sigmoid or not
+            int ori_width = -1;   // [Required] Original image width
+            int ori_height = -1;  // [Required] Original image height
+            float conf = 0.3f;    // [Optional] Confidence threshold
+            float iou = 0.4f;     // [Optional] IOU threshold for NMS
+
+            // [Optional] Path to a .txt file containing custom class names (one per line).
+            // Defaults to COCO dataset.
+            std::string classmap_path;
+
+            //  [optional] List of class IDs to return. All other detections will be ignored (e.g.,
+            //  [0] for person only in COCO dataset).
+            std::unordered_set<int> valid_classes;
+
+            bool fast_sigmoid = false;  // [Optional] Use fast sigmoid or not
         };
 
         struct YoloFinalConfig {
@@ -174,10 +181,10 @@ namespace MX {
             float conf;
             float iou;
             std::vector<int> valid_classes;
-            std::vector<std::string> class_labels;
             bool fast_sigmoid;
 
             // extra params for compared to YoloUserConfig
+            std::vector<std::string> class_labels;
             float letterbox_ratio;
             int letterbox_w;
             int letterbox_h;

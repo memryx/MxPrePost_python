@@ -48,8 +48,8 @@ pipe = Pipeline(
     ori_height=640,             # [required] original image height
     conf=0.5,                   # [optional] confidence threshold
     iou=0.5,                    # [optional] IoU threshold for NMS
-    valid_classes=[0, 2],       # [optional] filter predictions by class IDs (COCO dataset)
-    class_labels=["person", "bicycle", ...] # [optional] default to COCO
+    classmap_path="/path/to/classmap.txt",  # [optional] Path to a .txt file containing custom class names (one per line). Defaults to COCO dataset.
+    valid_classes=[0],       # [optional] List of class IDs to return. All other detections will be ignored (e.g., [0] for person only in COCO dataset).
 )
 ```
 

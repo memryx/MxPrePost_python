@@ -67,6 +67,7 @@ class YoloApp:
             ori_height=int(vidcap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             conf=0.3,
             iou=0.4,
+            # classmap_path="./labels.txt",
             # valid_classes=[0],
         )
 

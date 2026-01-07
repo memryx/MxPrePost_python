@@ -1,18 +1,43 @@
 #include "config_finalizer.h"
 
+#include <fstream>
+
 using namespace MX::Pipe;
+
+namespace {  // anonymous namespace for helper functions
+    std::vector<std::string> _load_classes(const std::string& file_path) {
+        std::vector<std::string> class_labels;
+        std::ifstream file(file_path);
+
+        if (!file.is_open()) {
+            std::cerr << "Error: Could not open file " << file_path << std::endl;
+            return class_labels;
+        }
+
+        std::string line;
+        while (std::getline(file, line)) {
+            // Optional: Skip empty lines
+            if (!line.empty()) {
+                class_labels.push_back(line);
+            }
+        }
+
+        file.close();
+        return class_labels;
+    }
+}
 
 YoloFinalConfig ConfigFinalizer::finalize(const YoloUserConfig& user) {
     YoloFinalConfig final;
 
     // Required parameters
     if (user.ori_width <= 0) {
-        throw std::invalid_argument("ori_width must be a positive integer.");
+        throw std::invalid_argument("ori_width must be provided for YoloUserConfig.");
     }
     final.ori_width = user.ori_width;
 
     if (user.ori_height <= 0) {
-        throw std::invalid_argument("ori_height must be a positive integer.");
+        throw std::invalid_argument("ori_height must be provided for YoloUserConfig.");
     }
     final.ori_height = user.ori_height;
 
@@ -22,25 +47,26 @@ YoloFinalConfig ConfigFinalizer::finalize(const YoloUserConfig& user) {
     final.fast_sigmoid = user.fast_sigmoid;
 
     // For Class Labels
-    if (user.class_labels.empty()) {
+    if (user.classmap_path.empty()) {
         for (const auto& label : COCO_NAMES) {
             final.class_labels.push_back(label);
         }
-
     } else {
-        for (const auto& label : user.class_labels) {
-            final.class_labels.push_back(label);
-        }
+        // read from file
+        final.class_labels = _load_classes(user.classmap_path);
     }
 
     // For Valid Classes
     if (user.valid_classes.empty()) {
-
         for (int i = 0; i < final.class_labels.size(); ++i) {
             final.valid_classes.push_back(i);
         }
     } else {
         for (int cls : user.valid_classes) {
+            if (cls >= 0 && cls < final.class_labels.size()) {
+                throw std::invalid_argument("valid_classes contains invalid class ID: " +
+                                            std::to_string(cls));
+            }
             final.valid_classes.push_back(cls);
         }
     }
