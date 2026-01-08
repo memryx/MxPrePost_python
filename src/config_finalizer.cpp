@@ -31,6 +31,17 @@ namespace {  // anonymous namespace for helper functions
 YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloUserConfig& user) {
     YoloFinalConfig final;
 
+    MX::Types::MxModelInfo model_info = accl->get_model_info(0);
+    if (model_info.use_model_shape_in == true) {
+        throw std::runtime_error(
+                "use_model_shape of input must be false for Yolo models in MxPipeline");
+    }
+
+    if (model_info.use_model_shape_out == true) {
+        throw std::runtime_error(
+                "use_model_shape of output must be false for Yolo models in MxPipeline");
+    }
+
     // Required parameters
     if (user.ori_width <= 0) {
         throw std::invalid_argument("ori_width must be provided for YoloUserConfig.");
@@ -77,7 +88,6 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
     final.ori_height = user.ori_height;
 
     // Get model input dimensions
-    MX::Types::MxModelInfo model_info = accl->get_model_info(0);
     final.model_h = model_info.in_featuremap_shapes[0][0];
     final.model_w = model_info.in_featuremap_shapes[0][1];
 

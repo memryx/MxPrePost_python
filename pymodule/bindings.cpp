@@ -86,6 +86,7 @@ class BindPipeline {
 
         config.classmap_path = std::move(classmap_path);
 
+        // TODO: check pyaccl type first
         // get PyMxAccl ptr from pyaccl
         py::object ptr = pyaccl.attr("get_raw_ptr")();
         uintptr_t addr = ptr.cast<uintptr_t>();
