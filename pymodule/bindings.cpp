@@ -7,7 +7,6 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/ndarraytypes.h>
 
-#include "bindings.h"
 #include "memx/accl/MxAccl.h"
 #include "pipeline.h"
 
@@ -90,7 +89,7 @@ class BindPipeline {
         // get PyMxAccl ptr from pyaccl
         py::object ptr = pyaccl.attr("get_raw_ptr")();
         uintptr_t addr = ptr.cast<uintptr_t>();
-        PyMxAccl* accl = reinterpret_cast<PyMxAccl*>(addr);
+        MX::Runtime::MxAccl* accl = reinterpret_cast<MX::Runtime::MxAccl*>(addr);
 
         // create pipeline using factory method
         pipeline_ = Pipeline::create(accl, task, config);
