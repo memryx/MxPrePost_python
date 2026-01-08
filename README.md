@@ -35,9 +35,8 @@ class App:
         # Do something with results (e.g., display)
 ```
 
-## Configuration Scenarios
+## Configuration
 
-### 1. Default Configuration (Constructor)
 You can configure the behavior during initialization. This sets the base configuration for all subsequent calls.
 
 Example:
@@ -55,22 +54,6 @@ pipe = Pipeline(
 
 NOTE: 
 - If application is run with multi streams, each stream has to share the same `ori_width` and `ori_height`.
-
-### 2. Per frame override (One-shot configuration)
-
-`preprocess()` and `postprocess()` accepts multiple arguments that can be passed at processing time to override the defaults.
-
-For example: Temporarily lower the confidence threshold and return person class only for frame ID 10.
-
-```python
-frame_id += 1
-if frame_id == 10:
-    # Overrides defaults only for this specific call
-    result = pipe.postprocess(fmaps, conf=0.3, valid_classes=[0]) 
-else:
-    # Uses the base configuration
-    result = pipe.postprocess(fmaps)
-```
 
 ## Result Visualization
 
@@ -121,8 +104,8 @@ Notes:
 - `--task`: yolovX_Y (e.g. yolov8_det, yolov8_seg, yolov11_pose, etc.)
 - `--show`: Display results
 
-Warning:
-!! This library does not support legacy Accl object binding (e.g. SyncAccl, AsyncAccl, MultistreamAsyncAccl) !!
+⚠️ Warning ⚠️ <br>
+This library does not support legacy Accl object binding (e.g. SyncAccl, AsyncAccl, MultistreamAsyncAccl)
 
 
 ### C++ example:
@@ -140,9 +123,6 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 - [x] YOLOv10 detection / ~~segmentation / pose estimation~~ (no model)
 - [x] YOLOv11 detection / segmentation / pose estimation
 - [x] Make detect tasks work for custom dataset
-- [ ] Make seg tasks work for custom dataset
-- [ ] Make pose tasks work for custom dataset
-- [ ] Implement One-shot configuration for specific frame
 - [ ] Testing!
 - [ ] Maybe align with ultralytics Result format and naming, should we?
 - [ ] Complete memryx tutorial
