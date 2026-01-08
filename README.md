@@ -66,20 +66,18 @@ annotated_image = pipe.draw(results, raw_image)
 # User handles display, e.g. cv2.imshow(...)
 ```
 
-## Installtion
+## Installation
 ```bash
 # clone
-git clone https://github.com/memryx/POST_API.git
+git clone git@github.com:memryx/POST_API.git
 cd POST_API
-git submodule update --init
+git submodule update --init --recursive
 
-# build cpp shared library: libmxpipe.so
-mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
-
-# build pymodule: mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
+# activate python virtualenv
 source ~/.mx/bin/activate # or whatever your virtualenv
-cd POST_API/pymodule
-mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug  && make -j$(nproc)
+
+# build and install everything
+sh build.sh
 ```
 
 ## Quick Start
@@ -89,8 +87,11 @@ mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug  && make -j$(nproc)
 cd POST_API/samples/python
 
 # Create a symbolic link to the built module, note that python version here is based on your virtualenv
-# ex: ln -sv ../../pymodule/build/mxpipe.cpython-310-x86_64-linux-gnu.so
-ln -sv ../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
+# ex: ln -sfv ../../pymodule/build/mxpipe.cpython-310-x86_64-linux-gnu.so
+ln -sfv ../../pymodule/build/mxpipe.cpython-*.so
+
+# link to mxapi
+ln -sfv ../../extern/MX_API/mx_accl/pymodule/build/mxapi.cpython-*.so
 
 # ex:
 # python run.py -d models/onnx/YOLO_v8_small_640_640_3_onnx.dfp \

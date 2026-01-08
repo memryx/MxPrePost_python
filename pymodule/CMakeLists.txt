@@ -17,7 +17,9 @@ endif()
 add_subdirectory(pybind11)  # Clone from https://github.com/pybind/pybind11
 
 # This will automatically name the output module "mxpipe.<python_abi_tag>.so"
-pybind11_add_module(mxpipe bindings.cpp)
+
+file(GLOB mxpipe_src ${CMAKE_CURRENT_SOURCE_DIR}/../src/*.cpp)
+pybind11_add_module(mxpipe bindings.cpp ${mxpipe_src})
 
 # find the path to the site-packages/numpy/core/include/ directory for the currently
 # active Python environment, and add that to the target_include_directories
@@ -31,10 +33,15 @@ find_package(OpenCV REQUIRED)
 
 # Include directories
 target_include_directories(mxpipe PRIVATE
-                           ${CMAKE_SOURCE_DIR}
                            ${PYTHON_NUMPY_INCLUDE_DIR}
                            ${OpenCV_INCLUDE_DIRS}
-                           /usr/include/
-                           ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+                           ${CMAKE_CURRENT_SOURCE_DIR}/../include
+                           ${CMAKE_CURRENT_SOURCE_DIR}/../extern/MX_API/mx_accl/include)
 
-target_link_libraries(mxpipe PRIVATE mx_accl ${OpenCV_LIBS} ${CMAKE_CURRENT_SOURCE_DIR}/../build/libmxpipe.so)
+target_link_libraries(mxpipe PRIVATE ${OpenCV_LIBS} mx_accl)
+
+# Set RPATH for the build tree so the executable can find 
+# the 'mx_accl' shared library without manual LD_LIBRARY_PATH exports.
+set_target_properties(mxpipe PROPERTIES
+    BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../extern/MX_API/build/mx_accl"
+)
