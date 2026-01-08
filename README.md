@@ -114,13 +114,16 @@ ln -sv ../../pymodule/build/mxpipe.cpython-<python_version>-x86_64-linux-gnu.so
 #               --task yolov8_det \
 #               --video_paths videos/sample.mp4 \
 #               --show
-#               --old_bind
-python run.py [--task <task>] [-d <onnx_model>] [--video_paths <video>] [--show] [--old_bind]
+python run.py [--task <task>] [-d <onnx_model>] [--video_paths <video>] [--show]
 ```
+
 Notes:
 - `--task`: yolovX_Y (e.g. yolov8_det, yolov8_seg, yolov11_pose, etc.)
-- `--old_bind`: Use legacy accl binding (MultiStreamAsyncAccl)
 - `--show`: Display results
+
+Warning:
+!! This library does not support legacy Accl object binding (e.g. SyncAccl, AsyncAccl, MultistreamAsyncAccl) !!
+
 
 ### C++ example:
 ```bash

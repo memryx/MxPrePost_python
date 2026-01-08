@@ -9,14 +9,11 @@ from threading import Thread
 from collections import defaultdict
 import sys
 import mxpipe
+import mxapi
 
 video_stream_1 = "/home/mixtile/memryx/media/people_1.mp4"
 video_stream_2 = "/home/mixtile/memryx/media/dataset_2.mp4"
 dfp = "/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite.dfp"
-post_onnx_path = (
-    "/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite_post.tflite"
-)
-
 
 FPS_LOG_INTERVAL = 30  # print out FPS every X frames
 
@@ -32,7 +29,6 @@ class YoloApp:
         """
 
         self.show = args.show
-        self.old_bind = args.old_bind
 
         # Display control and stream initialization
         self.done = False
@@ -71,55 +67,26 @@ class YoloApp:
         if self.show:
             self.display_thread.start()  # Start the display thread
 
-        if self.old_bind:
-            print("Run with old binding")
-            import memryx
+        local = False
+        accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
+        # accl.connect_post_model(args.post_model)
 
-            accl = memryx.MultiStreamAsyncAccl(
-                dfp=self.dfp, use_model_shape=(False, False)
-            )
-            
-            # init MXPipe pipeline
-            self.pipe = mxpipe.Pipeline(
-                accl=accl,
-                task=args.task,
-                ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
-                ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                conf=0.3,
-                iou=0.4,
-                # valid_classes=[0],
-            )
-            
-            accl.connect_streams(
-                self.in_callback_old_bind, self.out_callback_old_bind, self.num_streams
-            )
-            
-            accl.wait()
+        for i in range(self.num_streams):
+            accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
 
-        else:
-            print("Run with new binding")
-            import mxapi
+        # init MXPipe pipeline
+        self.pipe = mxpipe.Pipeline(
+            accl=accl,
+            task=args.task,
+            ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
+            ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            conf=0.3,
+            iou=0.4,
+            # valid_classes=[0],
+        )
 
-            local = False
-            accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
-            # accl.connect_post_model(args.post_model)
-
-            for i in range(self.num_streams):
-                accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
-
-            # init MXPipe pipeline
-            self.pipe = mxpipe.Pipeline(
-                accl=accl,
-                task=args.task,
-                ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
-                ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                conf=0.3,
-                iou=0.4,
-                # valid_classes=[0],
-            )
-            
-            accl.start()
-            accl.wait()
+        accl.start()
+        accl.wait()
 
         self.done = True
 
@@ -166,14 +133,6 @@ class YoloApp:
 
         # Calculate FPS
         self.update_fps(stream_id)
-
-    # for old binding test
-    def in_callback_old_bind(self, stream_id):
-        return self.in_callback(stream_id)
-
-    # for old binding test
-    def out_callback_old_bind(self, stream_id, *ofmaps):
-        self.out_callback(list(ofmaps), stream_id)
 
     def display(self):
         """
@@ -295,10 +254,6 @@ if __name__ == "__main__":
         type=str,
         default=dfp,
         help="Path to the compiled DFP file (default: 'models/tflite/YOLO_v8_small_640_640_3_tflite.dfp')",
-    )
-
-    parser.add_argument(
-        "--old_bind", action="store_true", help="Use old binding method"
     )
 
     parser.add_argument(
