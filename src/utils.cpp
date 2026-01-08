@@ -175,8 +175,8 @@ namespace MX::Pipe::Util {
 
         // Convert custom points to cv::Point
         std::vector<cv::Point> cv_points;
-        for (const auto& p : mask.xy) {
-            cv_points.push_back(cv::Point(p.x, p.y));
+        for (const auto& pt : mask.xys) {
+            cv_points.push_back(cv::Point(pt.x, pt.y));
         }
 
         // 2. Fill the polygon (Mask)

@@ -135,7 +135,7 @@ namespace MX {
         };
 
         struct Mask {
-            std::vector<Point2f> xy;
+            std::vector<Point2f> xys;
             int cls_id;
         };
 

@@ -190,16 +190,16 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
 
             Mask mask_struct;
             mask_struct.cls_id = box.cls_id;
-            mask_struct.xy.reserve(contour.size());
+            mask_struct.xys.reserve(contour.size());
 
             // --- STEP 7: Map points back to Original Image Space ---
             // Points 'p' are relative to the BBox crop.
             // Add the BBox top-left offset to get global coordinates.
             for (const auto& p : contour) {
-                mask_struct.xy.push_back({p.x + box.x_min, p.y + box.y_min});
+                mask_struct.xys.push_back({p.x + box.x_min, p.y + box.y_min});
             }
 
-            if (!mask_struct.xy.empty()) {
+            if (!mask_struct.xys.empty()) {
                 result.masks.push_back(mask_struct);
             }
         }
