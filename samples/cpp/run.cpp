@@ -189,11 +189,12 @@ class YoloApp {
         // Postprocess
         MX::Pipe::Result result;
         pipe_->postprocess(ofmaps, result);
-        pipe_->draw(displayImage, result);
-
+        
         // Display the updated image in the GUI
-        if (gui)
+        if (gui) {
+            pipe_->draw(displayImage, result);
             gui->screens[0]->SetDisplayFrame(stream_id, displayImage, fps_number);
+        }
 
         // update fps
         _update_fps(stream_id);
