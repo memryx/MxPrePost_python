@@ -1,5 +1,6 @@
 #include "pipeline.h"
 
+#include "yolo10_detect.h"
 #include "yoloultralytics_detect.h"
 #include "yoloultralytics_pose.h"
 #include "yoloultralytics_segment.h"
@@ -18,7 +19,7 @@ Pipeline* Pipeline::create(MX::Runtime::MxAccl* accl,
     } else if (task == "yolov9_det") {
         return new YoloUltralyticsDetect(accl, config);
     } else if (task == "yolov10_det") {
-        return new YoloUltralyticsDetect(accl, config);
+        return new Yolo10Detect(accl, config);
     } else if (task == "yolov11_det") {
         return new YoloUltralyticsDetect(accl, config);
     } else if (task == "yolov11_seg") {

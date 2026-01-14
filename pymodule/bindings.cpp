@@ -220,13 +220,15 @@ PYBIND11_MODULE(mxpipe, m) {
 Create Pipeline.
 
 Args:
-  task: Task for post process. Pass yolov[8|9|10|11]_[det|seg|pose]
+  accl (MemryX accl): MemryX accelerator object. 
+  task (str): Task for post process. Pass yolov[8|9|10|11]_[det|seg|pose]
   ori_width (int): Original width of the image.
   ori_height (int): Original height of the image.
-  conf (float): Confidence score. Defalut is 0.3
-  iou (float): Intersection over Union (IoU) threshold. Defalut is 0.4
-  valid_classes (list of ints): The classes to consider. Defalut is all classes
-  fast_sigmoid (bool): Use fast sigmoid if True. Defalut is False
+  conf (float): Confidence score. [Default is 0.3]
+  iou (float): Intersection over Union (IoU) threshold. [Default is 0.4]
+  classmap_path (str): The path for a file containing classes separated in each line. [Default using COCO Classes]
+  valid_classes (list of ints): The classes to consider. [Default is all classes]
+  fast_sigmoid (bool): Use fast sigmoid if True. [Default is False]
 )doc")
             .def("draw", &BindPipeline::draw)
             .def("preprocess", &BindPipeline::preprocess)
