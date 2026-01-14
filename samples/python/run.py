@@ -113,9 +113,8 @@ class YoloApp:
                 # Put the frame in the cap_queue to be processed later
                 self.cap_queue[stream_id].put(frame)
 
-            # TODO: get frame with shape based on use_model_shape
+            # call preprocess from mxpipe
             frame = self.pipe.preprocess(frame)
-            frame = frame.reshape(640, 640, 1, 3)
 
             return frame
 

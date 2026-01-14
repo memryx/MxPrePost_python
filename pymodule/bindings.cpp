@@ -42,10 +42,22 @@ cv::Mat numpy_to_mat(const py::array& array) {
 }
 
 py::array mat_to_numpy(const cv::Mat& mat) {
-    std::vector<size_t> shape = {(size_t)mat.rows, (size_t)mat.cols, (size_t)mat.channels()};
+    // Determine dimensions
+    int ndims = mat.dims;
+    std::vector<size_t> shape(ndims);
+    std::vector<size_t> strides(ndims);
 
-    std::vector<size_t> strides = {
-            (size_t)mat.step, (size_t)mat.elemSize(), (size_t)mat.elemSize1()};
+    for (int i = 0; i < ndims; ++i) {
+        shape[i] = (size_t)mat.size[i];
+        strides[i] = (size_t)mat.step[i];
+    }
+
+    // If it's a standard 2D multi-channel image (H, W, C), 
+    // OpenCV's mat.dims is 2, but numpy expects 3 dimensions.
+    if (ndims == 2 && mat.channels() > 1) {
+        shape.push_back((size_t)mat.channels());
+        strides.push_back((size_t)mat.elemSize1());
+    }
 
     std::string format;
     if (mat.depth() == CV_8U)
@@ -56,7 +68,8 @@ py::array mat_to_numpy(const cv::Mat& mat) {
         throw std::runtime_error("Unsupported Mat depth");
 
     // zero-copy conversion
-    return py::array(py::buffer_info(mat.data, mat.elemSize1(), format, 3, shape, strides));
+    return py::array(
+            py::buffer_info(mat.data, mat.elemSize1(), format, shape.size(), shape, strides));
 }
 
 class BindPipeline {
@@ -93,6 +106,13 @@ class BindPipeline {
 
         // create pipeline using factory method
         pipeline_ = Pipeline::create(accl, task, config);
+
+        // get input shape from model info
+        MX::Types::MxModelInfo model_info = accl->get_model_info(0);
+        MX::Types::ShapeVector shape_vec = model_info.in_featuremap_shapes[0];
+        for (int i = 0; i < shape_vec.size(); ++i) {
+            in_shape_.push_back(shape_vec[i]);
+        }
     }
 
     ~BindPipeline() {
@@ -107,8 +127,12 @@ class BindPipeline {
         // call preprocess
         cv::Mat padded = pipeline_->preprocess(img);
 
+        // Reshape for model input
+        int sizes[] = {in_shape_[0], in_shape_[1], in_shape_[2], in_shape_[3]};
+        cv::Mat reshaped = padded.reshape(1, 4, sizes);
+
         // convert back to numpy
-        return mat_to_numpy(padded);
+        return mat_to_numpy(reshaped);
     }
 
     MX::Pipe::Result postprocess(const std::vector<py::array>& ofmaps) {
@@ -144,6 +168,7 @@ class BindPipeline {
   private:
     Pipeline* pipeline_;
     std::vector<float*> ofmap_ptrs_;
+    std::vector<int> in_shape_;
 };
 
 // helper to safely call import_array()
