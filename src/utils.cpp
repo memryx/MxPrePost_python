@@ -311,10 +311,10 @@ namespace MX::Pipe::Util {
         return t;
     }
 
-    size_t total_preds(const Grid* grids, size_t n, size_t preds_per_cell) {
+    size_t total_preds(const std::vector<Grid>& grids, size_t preds_per_cell) {
         size_t total = 0;
-        for (size_t i = 0; i < n; ++i) {
-            total += grids[i].width * grids[i].height;
+        for (const auto& g : grids) {
+            total += g.width * g.height;
         }
         return total * preds_per_cell;
     }

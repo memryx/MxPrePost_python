@@ -83,5 +83,5 @@ namespace MX::Pipe::Util {
         size_t height;
     };
 
-    size_t total_preds(const Grid* grids, size_t n, size_t preds_per_cell);
+    size_t total_preds(const std::vector<Grid>& grids, size_t preds_per_cell);
 }

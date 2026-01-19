@@ -52,13 +52,13 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
         }
     }
 
-    MX::Pipe::Util::Grid grids[] = {
+    std::vector<MX::Pipe::Util::Grid> grids = {
             {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
             {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
             {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
     };
 
-    total_preds_ = MX::Pipe::Util::total_preds(grids, 3, kPredsPerCell);
+    total_preds_ = MX::Pipe::Util::total_preds(grids, kPredsPerCell);
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
