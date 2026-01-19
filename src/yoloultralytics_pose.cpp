@@ -51,6 +51,14 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
             }
         }
     }
+
+    MX::Pipe::Util::Grid grids[] = {
+            {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
+            {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
+            {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
+    };
+
+    total_preds_ = MX::Pipe::Util::total_preds(grids, 3, kPredsPerCell);
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
@@ -105,8 +113,8 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
 
     std::vector<BBox> all_boxes;
     std::vector<std::vector<Keypoint>> all_kpts;
-    all_boxes.reserve(TOTAL_ANCHORS);
-    all_kpts.reserve(TOTAL_ANCHORS);
+    all_boxes.reserve(total_preds_);
+    all_kpts.reserve(total_preds_);
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);

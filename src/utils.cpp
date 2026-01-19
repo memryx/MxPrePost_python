@@ -301,4 +301,21 @@ namespace MX::Pipe::Util {
         // coords for letterbox
         return {x1, y1, x2, y2};
     }
+
+    // Generic: sum of (width*height) across layers
+    template <typename LayerArray> inline size_t total_cells(const LayerArray& layers) {
+        size_t t = 0;
+        for (const auto& l : layers) {
+            t += static_cast<size_t>(l.width) * static_cast<size_t>(l.height);
+        }
+        return t;
+    }
+
+    size_t total_preds(const Grid* grids, size_t n, size_t preds_per_cell) {
+        size_t total = 0;
+        for (size_t i = 0; i < n; ++i) {
+            total += grids[i].width * grids[i].height;
+        }
+        return total * preds_per_cell;
+    }
 }

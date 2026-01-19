@@ -39,6 +39,14 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
             .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
             .stride = 32,
     };
+
+    MX::Pipe::Util::Grid grids[] = {
+            {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
+            {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
+            {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
+    };
+
+    total_preds_ = MX::Pipe::Util::total_preds(grids, 3, kPredsPerCell);
 }
 
 cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
@@ -56,7 +64,13 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
 
     // Candidate Gathering
     std::vector<BBox> all_boxes;
-    all_boxes.reserve(TOTAL_ANCHORS);
+    // size_t total_preds = 0;
+    // for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
+    //     const auto& layer = yolo_post_layers_[layer_id];
+    //     total_preds += static_cast<size_t>(layer.width) * static_cast<size_t>(layer.height);
+    // }
+    all_boxes.reserve(total_preds_);
+
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);

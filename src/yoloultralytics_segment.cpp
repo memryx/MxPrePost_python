@@ -36,6 +36,14 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
                             .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
                             .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
                             .stride = 32};
+
+    MX::Pipe::Util::Grid grids[] = {
+            {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
+            {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
+            {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
+    };
+
+    total_preds_ = MX::Pipe::Util::total_preds(grids, 3, kPredsPerCell);
 }
 
 cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
@@ -54,8 +62,10 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     // Candidate Gathering
     std::vector<BBox> all_boxes;
     std::vector<float*> all_mask_coefs;  // mask coefficient base ptrs
-    all_boxes.reserve(TOTAL_ANCHORS);
-    all_mask_coefs.reserve(TOTAL_ANCHORS);
+
+    all_boxes.reserve(total_preds_);
+    all_mask_coefs.reserve(total_preds_);
+
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);

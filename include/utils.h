@@ -77,4 +77,11 @@ namespace MX::Pipe::Util {
 
     std::array<float, 4>
     dfl(float* coord_buf, int row, int col, int stride, int model_w, int model_h);
+
+    struct Grid {
+        size_t width;
+        size_t height;
+    };
+
+    size_t total_preds(const Grid* grids, size_t n, size_t preds_per_cell);
 }
