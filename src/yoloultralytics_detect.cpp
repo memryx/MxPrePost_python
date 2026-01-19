@@ -64,11 +64,6 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs, Resu
 
     // Candidate Gathering
     std::vector<BBox> all_boxes;
-    // size_t total_preds = 0;
-    // for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
-    //     const auto& layer = yolo_post_layers_[layer_id];
-    //     total_preds += static_cast<size_t>(layer.width) * static_cast<size_t>(layer.height);
-    // }
     all_boxes.reserve(total_preds_);
 
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
