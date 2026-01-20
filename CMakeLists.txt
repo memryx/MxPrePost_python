@@ -32,3 +32,8 @@ target_link_libraries(mxpipe ${OpenCV_LIBS} mx_accl)
 set_target_properties(mxpipe PROPERTIES
     BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/extern/MX_API/build/mx_accl"
 )
+
+
+include(CTest)
+enable_testing()
+add_subdirectory(tests)
