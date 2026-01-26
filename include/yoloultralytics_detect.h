@@ -32,8 +32,7 @@ namespace MX {
             static constexpr size_t kNumPostProcessLayers = 3;
             struct LayerParams yolo_post_layers_[kNumPostProcessLayers];
 
-            static constexpr size_t kPredsPerCell = 1;
-            size_t total_preds_ = 0;
+            size_t total_preds_ = 8400;
 
             // misc
             std::unique_ptr<MX::Pipe::Util::ScoreManager> smgr_;

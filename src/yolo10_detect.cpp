@@ -43,8 +43,6 @@ Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user
             {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
             {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
     };
-
-    total_preds_ = MX::Pipe::Util::total_preds(grids, kPredsPerCell);
 }
 
 cv::Mat Yolo10Detect::preprocess(const cv::Mat& image) {

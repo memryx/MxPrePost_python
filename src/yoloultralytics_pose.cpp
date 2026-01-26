@@ -57,8 +57,6 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
             {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
             {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
     };
-
-    total_preds_ = MX::Pipe::Util::total_preds(grids, kPredsPerCell);
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
