@@ -5,6 +5,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(CMAKE_CXX_STANDARD 17)
 
+option(MXPIPE_TEST "Enable unit tests (gtest)" OFF)
+
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
     message("Debug mode")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pipe -fPIC -O0 -g -fopenmp")
@@ -19,6 +21,12 @@ find_package(OpenCV REQUIRED)
 
 add_library(mxpipe SHARED ${local_src})
 
+if(MXPIPE_TEST)
+    include(CTest)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 target_include_directories(mxpipe PRIVATE 
     ${OpenCV_INCLUDE_DIRS}
     include/
@@ -32,8 +40,3 @@ target_link_libraries(mxpipe ${OpenCV_LIBS} mx_accl)
 set_target_properties(mxpipe PROPERTIES
     BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/extern/MX_API/build/mx_accl"
 )
-
-
-include(CTest)
-enable_testing()
-add_subdirectory(tests)
