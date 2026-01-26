@@ -5,8 +5,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(CMAKE_CXX_STANDARD 17)
 
-option(MXPIPE_TEST "Enable unit tests (gtest)" OFF)
-
+# Compiler flags
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
     message("Debug mode")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pipe -fPIC -O0 -g -fopenmp")
@@ -21,7 +20,21 @@ find_package(OpenCV REQUIRED)
 
 add_library(mxpipe SHARED ${local_src})
 
-if(MXPIPE_TEST)
+# --------------------------------------------------
+# Testing logic:
+# - Default: OFF
+# - Auto-ON in Debug
+# - User override always wins
+# --------------------------------------------------
+if(NOT DEFINED BUILD_TESTING)
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+        set(BUILD_TESTING ON CACHE BOOL "Enable unit tests" FORCE)
+    else()
+        set(BUILD_TESTING OFF CACHE BOOL "Enable unit tests" FORCE)
+    endif()
+endif()
+
+if(BUILD_TESTING)
     include(CTest)
     enable_testing()
     add_subdirectory(tests)
