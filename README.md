@@ -69,8 +69,8 @@ annotated_image = pipe.draw(results, raw_image)
 ## Installation
 ```bash
 # clone
-git clone git@github.com:memryx/POST_API.git
-cd POST_API
+git clone git@github.com:memryx/MxPipeline.git
+cd MxPipeline
 git submodule update --init --recursive
 
 # activate python virtualenv
