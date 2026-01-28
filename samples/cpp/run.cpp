@@ -1,5 +1,5 @@
 #include <memx/mxutils/gui_view.h>
-#include <pipeline.h>
+#include <memx/prepost/MxPrepost.h>
 #include <signal.h>
 
 #include "memx/accl/MxAccl.h"
@@ -12,7 +12,7 @@
 #include <thread>
 
 namespace fs = std::filesystem;
-using namespace MX::Pipe;
+using namespace MX::Runtime;
 
 std::atomic_bool runflag;  // Atomic flag to control run state
 std::string task = "please-specify-me";
@@ -114,7 +114,7 @@ void initVcap(cv::VideoCapture& vcap, const std::string& video_src, bool& src_is
 
 class YoloApp {
   private:
-    MX::Pipe::Pipeline* pipe_;
+    MxPrepost* prepost;
 
     // Application Variables
     std::deque<cv::Mat> frames_queue;  // Queue for frames
@@ -160,7 +160,7 @@ class YoloApp {
                 }
 
                 // Preprocess
-                cv::Mat pre = pipe_->preprocess(rgbImage);
+                cv::Mat pre = prepost->preprocess(rgbImage);
                 dst[0]->set_data((float*)pre.data);
                 return true;
             }
@@ -187,12 +187,12 @@ class YoloApp {
         }
 
         // Postprocess
-        MX::Pipe::Result result;
-        pipe_->postprocess(ofmaps, result);
-        
+        MX::Runtime::Result result;
+        prepost->postprocess(ofmaps, result);
+
         // Display the updated image in the GUI
         if (gui) {
-            pipe_->draw(displayImage, result);
+            prepost->draw(displayImage, result);
             gui->screens[0]->SetDisplayFrame(stream_id, displayImage, fps_number);
         }
 
@@ -233,7 +233,7 @@ class YoloApp {
         // Initialize video capture
         initVcap(vcap, video_src, src_is_cam);
 
-        // init pipeline object
+        // init prepost object
         YoloUserConfig config;
         config.ori_width = (int)vcap.get(cv::CAP_PROP_FRAME_WIDTH);
         config.ori_height = (int)vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
@@ -241,7 +241,7 @@ class YoloApp {
         config.iou = 0.4f;
         // config.classmap_path = "./labels.txt";
         // config.valid_classes = {0};
-        pipe_ = MX::Pipe::Pipeline::create(accl, task, config);
+        prepost = MxPrepost::create(accl, task, config);
 
         // Get model info and allocate output buffer
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);
@@ -269,7 +269,7 @@ class YoloApp {
         for (int i = 0; i < ofmaps.size(); i++) {
             delete[] ofmaps[i];  // Clean up memory
         }
-        delete pipe_;
+        delete prepost;
     }
 
     float get_avg_fps() const {

@@ -23,15 +23,15 @@ mkdir -p build && cd build
 cmake ..
 make -j$NUM_CORES
 
-# 3. build cpp shared library: libmxpipe.so
-echo "\n\n--- Building libmxpipe.so ---"
+# 3. build cpp shared library: libmxprepost.so
+echo "\n\n--- Building libmxprepost.so ---"
 cd "$PROJECT_ROOT"
 mkdir -p build && cd build
 cmake ..
 make -j$NUM_CORES
 
-# 4. build pymodule: mxpipe.so
-echo "\n\n--- Building mxpipe pymodule ---"
+# 4. build pymodule: mxprepost.so
+echo "\n\n--- Building mxprepost pymodule ---"
 cd "$PROJECT_ROOT/pymodule"
 mkdir -p build && cd build
 cmake ..
@@ -43,9 +43,9 @@ echo "\n\n--- Creating Symbolic Links ---"
 # Navigate to the target directory
 cd "$PROJECT_ROOT/samples/python"
 
-# 1. Link mxpipe (using wildcard to handle any python version)
+# 1. Link mxprepost (using wildcard to handle any python version)
 # Use 'ln -sf' to overwrite existing links if they exist
-ln -sfv "$PROJECT_ROOT/pymodule/build"/mxpipe.cpython-*.so .
+ln -sfv "$PROJECT_ROOT/pymodule/build"/mxprepost.cpython-*.so .
 
 # 2. Link mxapi
 ln -sfv "$PROJECT_ROOT/extern/MX_API/mx_accl/pymodule/build"/mxapi.cpython-*.so .

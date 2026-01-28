@@ -3,14 +3,12 @@
 #include "config.h"
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 
-namespace MX::Pipe::Util {
+namespace MX::Prepost::Util {
 
-    using namespace MX::Pipe;
-
-#include <algorithm>
-#include <cmath>
+    using namespace MX::Runtime;
 
     /**
      * @brief ScoreManager handles confidence score thresholding and conversion.

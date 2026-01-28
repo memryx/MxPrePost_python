@@ -1,15 +1,15 @@
 #pragma once
 
-#include "pipeline.h"
+#include "MxPrepost.h"
 
 // forward declaration
-namespace MX::Pipe::Util {
+namespace MX::Prepost::Util {
     class ScoreManager;
 }
 
 namespace MX {
-    namespace Pipe {
-        class Yolo10Detect : public MX::Pipe::Pipeline {
+    namespace Runtime {
+        class Yolo10Detect : public MX::Runtime::MxPrepost {
 
           public:
             Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
@@ -35,7 +35,7 @@ namespace MX {
             size_t total_preds_ = 8400;
 
             // misc
-            std::unique_ptr<MX::Pipe::Util::ScoreManager> smgr_;
+            std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
         };
 

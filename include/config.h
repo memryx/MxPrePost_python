@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace MX {
-    namespace Pipe {
+    namespace Runtime {
 
         constexpr int COORD_FMAP_SIZE = 64;  // Number of feature map channels for bbox coordinates
         constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coefficients

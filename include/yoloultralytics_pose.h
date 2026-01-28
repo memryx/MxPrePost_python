@@ -1,16 +1,16 @@
 #pragma once
 
-#include "pipeline.h"
+#include "MxPrepost.h"
 
 // forward declaration
-namespace MX::Pipe::Util {
+namespace MX::Prepost::Util {
     class ScoreManager;
 }
 
 namespace MX {
-    namespace Pipe {
+    namespace Runtime {
 
-        class YoloUltralyticsPose : public MX::Pipe::Pipeline {
+        class YoloUltralyticsPose : public MX::Runtime::MxPrepost {
 
           public:
             YoloUltralyticsPose(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
@@ -37,7 +37,7 @@ namespace MX {
 
             size_t total_preds_ = 8400;
 
-            std::unique_ptr<MX::Pipe::Util::ScoreManager> smgr_;
+            std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
         };
 
