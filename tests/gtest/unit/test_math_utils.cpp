@@ -4,11 +4,32 @@
 
 #include <vector>
 #include <algorithm>
+#include <array>
 
 using MX::Pipe::Util::get_best_label;
 using MX::Pipe::Util::nms;
+using MX::Pipe::Util::dfl;
 using MX::Pipe::BBox;
 using MX::Prepost::Util::get_best_label;
+
+namespace {
+    constexpr float DFL_PEAK_LOGIT = 20.0f;
+
+    void set_side_logits_peak(float* coord_buf, int side, int peak_bin, float A = DFL_PEAK_LOGIT) {
+        float* side_buf = coord_buf + side * 16;
+        for (int i = 0; i < 16; ++i) {
+            side_buf[i] = -A;
+        }
+        side_buf[peak_bin] = +A;
+    }
+
+    void set_side_logits_uniform(float* coord_buf, int side, float v = 0.0f) {
+        float* side_buf = coord_buf + side * 16;
+        for (int i = 0; i < 16; ++i) {
+            side_buf[i] = v;
+        }
+    }
+}
 
 /* ===================== get_best_label tests ===================== */
 
@@ -247,5 +268,288 @@ TEST(NMS, ClassAwareDifferentConfidence) {
     EXPECT_EQ(result.size(), 2);
     EXPECT_EQ(result[0], 0);  // Higher conf first
     EXPECT_EQ(result[1], 1);  // Lower conf second
+}
+
+/* ===================== dfl tests ===================== */
+
+TEST(DFL, SinglePeakDistribution) {
+    // coord_buf is logits (not probabilities): 4 sides * 16 bins
+    float coord_buf[64] = {0};
+
+    set_side_logits_peak(coord_buf, 0, 5);   // left
+    set_side_logits_peak(coord_buf, 1, 3);   // top
+    set_side_logits_peak(coord_buf, 2, 10);  // right
+    set_side_logits_peak(coord_buf, 3, 7);   // bottom
+    
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";
+    std::array<float, 4> result = dfl(coord_buf, 10, 10, 8, 640, 640);
+
+    EXPECT_NEAR(result[0], 44.0f, 1e-2f);   // x1 = (10.5 - 5) * 8
+    EXPECT_NEAR(result[1], 60.0f, 1e-2f);   // y1 = (10.5 - 3) * 8
+    EXPECT_NEAR(result[2], 164.0f, 1e-2f);  // x2 = (10.5 + 10) * 8
+    EXPECT_NEAR(result[3], 140.0f, 1e-2f);  // y2 = (10.5 + 7) * 8
+}
+
+TEST(DFL, BasicCoordinateConversion) {
+    float coord_buf[64] = {0};
+
+    set_side_logits_peak(coord_buf, 0, 2);  // left
+    set_side_logits_peak(coord_buf, 1, 4);  // top
+    set_side_logits_peak(coord_buf, 2, 6);  // right
+    set_side_logits_peak(coord_buf, 3, 8);  // bottom
+
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";    std::array<float, 4> result = dfl(coord_buf, 5, 5, 16, 640, 640);
+
+    EXPECT_NEAR(result[0], 56.0f, 1e-2f);   // x1 = (5.5 - 2) * 16
+    EXPECT_NEAR(result[1], 24.0f, 1e-2f);   // y1 = (5.5 - 4) * 16
+    EXPECT_NEAR(result[2], 184.0f, 1e-2f);  // x2 = (5.5 + 6) * 16
+    EXPECT_NEAR(result[3], 216.0f, 1e-2f);  // y2 = (5.5 + 8) * 16
+}
+
+TEST(DFL, CoordinatesExceedBounds) {
+    // Subtest A: negative clamp (x1/y1 clamp to 0)
+    {
+        float coord_buf[64] = {0};
+        set_side_logits_peak(coord_buf, 0, 15);  // left
+        set_side_logits_peak(coord_buf, 1, 15);  // top
+        set_side_logits_peak(coord_buf, 2, 15);  // right
+        set_side_logits_peak(coord_buf, 3, 15);  // bottom
+
+        std::cout << "left:   ";
+        for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\ntop:    ";
+        for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\nright:  ";
+        for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\nbottom: ";
+        for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\n";
+        std::array<float, 4> result = dfl(coord_buf, 0, 0, 8, 640, 640);
+
+        EXPECT_NEAR(result[0], 0.0f, 1e-3f);    // x1 clamped from -116
+        EXPECT_NEAR(result[1], 0.0f, 1e-3f);    // y1 clamped from -116
+        EXPECT_NEAR(result[2], 124.0f, 1e-2f);  // x2 = (0.5 + 15) * 8
+        EXPECT_NEAR(result[3], 124.0f, 1e-2f);  // y2 = (0.5 + 15) * 8
+    }
+
+    // Subtest B: positive clamp (x2/y2 clamp to model_w-1/model_h-1)
+    {
+        float coord_buf[64] = {0};
+        set_side_logits_peak(coord_buf, 0, 0);    // left
+        set_side_logits_peak(coord_buf, 1, 0);    // top
+        set_side_logits_peak(coord_buf, 2, 15);   // right
+        set_side_logits_peak(coord_buf, 3, 15);   // bottom
+
+        std::cout << "left:   ";
+        for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\ntop:    ";
+        for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\nright:  ";
+        for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\nbottom: ";
+        for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+        std::cout << "\n";
+        std::array<float, 4> result = dfl(coord_buf, 79, 79, 8, 640, 640);
+
+        EXPECT_NEAR(result[0], 636.0f, 1e-2f);  // x1 = (79.5 - 0) * 8
+        EXPECT_NEAR(result[1], 636.0f, 1e-2f);  // y1 = (79.5 - 0) * 8
+        EXPECT_NEAR(result[2], 639.0f, 1e-3f);  // x2 clamped from 756
+        EXPECT_NEAR(result[3], 639.0f, 1e-3f);  // y2 clamped from 756
+    }
+}
+
+TEST(DFL, AllSidesDifferent) {
+    float coord_buf[64] = {0};
+
+    set_side_logits_peak(coord_buf, 0, 2);   // left
+    set_side_logits_peak(coord_buf, 1, 5);   // top
+    set_side_logits_peak(coord_buf, 2, 8);   // right
+    set_side_logits_peak(coord_buf, 3, 11);  // bottom
+
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";
+    std::array<float, 4> result = dfl(coord_buf, 10, 10, 8, 640, 640);
+
+    EXPECT_NEAR(result[0], 68.0f, 1e-2f);   // x1 = (10.5 - 2) * 8
+    EXPECT_NEAR(result[1], 44.0f, 1e-2f);   // y1 = (10.5 - 5) * 8
+    EXPECT_NEAR(result[2], 148.0f, 1e-2f);  // x2 = (10.5 + 8) * 8
+    EXPECT_NEAR(result[3], 172.0f, 1e-2f);  // y2 = (10.5 + 11) * 8
+}
+
+TEST(DFL, CompleteBoundingBox) {
+    float coord_buf[64] = {0};
+
+    set_side_logits_peak(coord_buf, 0, 9);         // left peak at 9
+    set_side_logits_uniform(coord_buf, 1, 0.0f);   // top uniform logits -> EV = 7.5 exactly
+    set_side_logits_peak(coord_buf, 2, 5);         // right peak at 5
+    set_side_logits_peak(coord_buf, 3, 7);         // bottom peak at 7
+
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";
+    std::array<float, 4> result = dfl(coord_buf, 20, 20, 16, 640, 640);
+
+    EXPECT_NEAR(result[0], 184.0f, 1e-2f);  // x1 = (20.5 - 9) * 16
+    EXPECT_NEAR(result[1], 208.0f, 1e-2f);  // y1 = (20.5 - 7.5) * 16
+    EXPECT_NEAR(result[2], 408.0f, 1e-2f);  // x2 = (20.5 + 5) * 16
+    EXPECT_NEAR(result[3], 440.0f, 1e-2f);  // y2 = (20.5 + 7) * 16
+
+    EXPECT_LT(result[0], result[2]);
+    EXPECT_LT(result[1], result[3]);
+    EXPECT_GE(result[0], 0.0f);
+    EXPECT_GE(result[1], 0.0f);
+    EXPECT_LE(result[2], 639.0f);
+    EXPECT_LE(result[3], 639.0f);
+}
+
+TEST(DFL, UniformDistributionExact) {
+    // All sides: uniform logits -> softmax uniform -> EV = 7.5 for each side
+    float coord_buf[64] = {0};
+
+    // left, top, right, bottom all uniform
+    set_side_logits_uniform(coord_buf, 0, 0.0f);
+    set_side_logits_uniform(coord_buf, 1, 0.0f);
+    set_side_logits_uniform(coord_buf, 2, 0.0f);
+    set_side_logits_uniform(coord_buf, 3, 0.0f);
+
+    int row = 10;
+    int col = 10;
+    int stride = 8;
+    int model_w = 640;
+    int model_h = 640;
+
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";
+
+    std::array<float, 4> result = dfl(coord_buf, row, col, stride, model_w, model_h);
+
+    // Anchor at (10.5, 10.5), EV = 7.5
+    // x1 = (10.5 - 7.5) * 8 = 24, x2 = (10.5 + 7.5) * 8 = 144
+    EXPECT_NEAR(result[0], 24.0f, 1e-3f);
+    EXPECT_NEAR(result[1], 24.0f, 1e-3f);
+    EXPECT_NEAR(result[2], 144.0f, 1e-3f);
+    EXPECT_NEAR(result[3], 144.0f, 1e-3f);
+}
+
+TEST(DFL, SoftmaxShiftInvariance) {
+    // Adding a constant to all logits must not change decoded distances
+    float coord_buf[64] = {0};
+
+    // Base logits: left has sharp peak at 5, others uniform
+    set_side_logits_peak(coord_buf, 0, 5);
+    set_side_logits_uniform(coord_buf, 1, 0.0f);
+    set_side_logits_uniform(coord_buf, 2, 0.0f);
+    set_side_logits_uniform(coord_buf, 3, 0.0f);
+
+
+
+    int row = 10;
+    int col = 10;
+    int stride = 8;
+    int model_w = 640;
+    int model_h = 640;
+
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";
+    std::array<float, 4> result1 = dfl(coord_buf, row, col, stride, model_w, model_h);
+
+    // Shift all logits by +100, softmax should be identical
+    for (int i = 0; i < 64; ++i) {
+        coord_buf[i] += 100.0f;
+    }
+
+    std::array<float, 4> result2 = dfl(coord_buf, row, col, stride, model_w, model_h);
+
+    EXPECT_NEAR(result1[0], result2[0], 1e-4f);
+    EXPECT_NEAR(result1[1], result2[1], 1e-4f);
+    EXPECT_NEAR(result1[2], result2[2], 1e-4f);
+    EXPECT_NEAR(result1[3], result2[3], 1e-4f);
+}
+
+TEST(DFL, TwoPeakSymmetry) {
+    // Two equal peaks at bins 3 and 11 -> EV should be ~7.0 (midpoint)
+    float coord_buf[64] = {0};
+
+    // Left side: two symmetric peaks at 3 and 11
+    float* left = coord_buf + 0 * 16;
+    for (int i = 0; i < 16; ++i) {
+        left[i] = -DFL_PEAK_LOGIT;
+    }
+    left[3]  = DFL_PEAK_LOGIT;
+    left[11] = DFL_PEAK_LOGIT;
+
+    // Other sides uniform for simplicity
+    set_side_logits_uniform(coord_buf, 1, 0.0f);  // top
+    set_side_logits_uniform(coord_buf, 2, 0.0f);  // right
+    set_side_logits_uniform(coord_buf, 3, 0.0f);  // bottom
+
+    int row = 10;
+    int col = 10;
+    int stride = 8;
+    int model_w = 640;
+    int model_h = 640;
+
+    std::cout << "left:   ";
+    for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\ntop:    ";
+    for (int i = 16; i < 32; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nright:  ";
+    for (int i = 32; i < 48; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\nbottom: ";
+    for (int i = 48; i < 64; ++i) std::cout << coord_buf[i] << ' ';
+    std::cout << "\n";
+
+    std::array<float, 4> result = dfl(coord_buf, row, col, stride, model_w, model_h);
+
+    // For the left side: EV ≈ (3 + 11) / 2 = 7.0
+    // x1 = (10.5 - 7.0) * 8 = 28.0
+    EXPECT_NEAR(result[0], 28.0f, 1e-2f);
+
+    // Optional sanity: box is still sensible
+    EXPECT_LT(result[0], result[2]);
+    EXPECT_LT(result[1], result[3]);
 }
 
