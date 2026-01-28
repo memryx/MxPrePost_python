@@ -6,11 +6,11 @@
 #include <algorithm>
 #include <array>
 
-using MX::Pipe::Util::get_best_label;
-using MX::Pipe::Util::nms;
-using MX::Pipe::Util::dfl;
-using MX::Pipe::BBox;
+using MX::Prepost::Util::nms;
+using MX::Prepost::Util::dfl;
+using MX::Runtime::BBox;
 using MX::Prepost::Util::get_best_label;
+using MX::Prepost::Util::preprocess;
 
 namespace {
     constexpr float DFL_PEAK_LOGIT = 20.0f;
@@ -280,7 +280,7 @@ TEST(DFL, SinglePeakDistribution) {
     set_side_logits_peak(coord_buf, 1, 3);   // top
     set_side_logits_peak(coord_buf, 2, 10);  // right
     set_side_logits_peak(coord_buf, 3, 7);   // bottom
-    
+
     std::cout << "left:   ";
     for (int i = 0; i < 16; ++i) std::cout << coord_buf[i] << ' ';
     std::cout << "\ntop:    ";
@@ -553,3 +553,162 @@ TEST(DFL, TwoPeakSymmetry) {
     EXPECT_LT(result[1], result[3]);
 }
 
+/* ===================== preprocess tests ===================== */
+
+TEST(Preprocess, BasicFunctionality) {
+    // 1920x1080 RGB image, resized to 640x360, padded to 640x640
+    cv::Mat input(1080, 1920, CV_8UC3, cv::Scalar(128, 128, 128));
+    
+    int letterbox_w = 640;
+    int letterbox_h = 360;
+    int pad_w = 0;
+    int pad_h = 140;
+    
+    cv::Mat result = preprocess(input, letterbox_w, letterbox_h, pad_w, pad_h);
+    
+    EXPECT_EQ(result.rows, 640);
+    EXPECT_EQ(result.cols, 640);
+    EXPECT_EQ(result.type(), CV_32FC3);
+    
+    // Verify value range [0.0, 1.0]
+    double min_val, max_val;
+    cv::minMaxLoc(result, &min_val, &max_val);
+    EXPECT_GE(min_val, 0.0f);
+    EXPECT_LE(max_val, 1.0f);
+    
+    // Verify top padding is zero (rows 0-139)
+    cv::Mat top_padding = result(cv::Rect(0, 0, 640, pad_h));
+    cv::Scalar top_sum = cv::sum(top_padding);
+    EXPECT_NEAR(top_sum[0], 0.0f, 1e-5f);
+    
+    // Verify bottom padding is zero (rows 500-639)
+    int bottom_start_row = pad_h + letterbox_h;  // 140 + 360 = 500
+    cv::Mat bottom_padding = result(cv::Rect(0, bottom_start_row, 640, pad_h));
+    cv::Scalar bottom_sum = cv::sum(bottom_padding);
+    EXPECT_NEAR(bottom_sum[0], 0.0f, 1e-5f);
+    
+    // Verify left and right edges are content (not padding) since pad_w=0
+    // Check that left edge (col 0) contains content, not padding
+    cv::Mat left_edge = result(cv::Rect(0, pad_h, 1, letterbox_h));
+    cv::Scalar left_edge_mean = cv::mean(left_edge);
+    EXPECT_GT(left_edge_mean[0], 0.0f);
+    
+    // Check that right edge (col 639) contains content, not padding
+    cv::Mat right_edge = result(cv::Rect(639, pad_h, 1, letterbox_h));
+    cv::Scalar right_edge_mean = cv::mean(right_edge);
+    EXPECT_GT(right_edge_mean[0], 0.0f);
+    
+    // Verify center region is normalized correctly (rows 140-499, cols 0-639)
+    cv::Mat center = result(cv::Rect(0, pad_h, 640, letterbox_h));
+    cv::Scalar center_mean = cv::mean(center);
+    EXPECT_NEAR(center_mean[0], 128.0f / 255.0f, 1e-3f);
+}
+
+TEST(Preprocess, SquareImageNoPadding) {
+    cv::Mat input(640, 640, CV_8UC3, cv::Scalar(255, 255, 255));
+    
+    cv::Mat result = preprocess(input, 640, 640, 0, 0);
+    
+    EXPECT_EQ(result.rows, 640);
+    EXPECT_EQ(result.cols, 640);
+    EXPECT_EQ(result.type(), CV_32FC3);
+    
+    // All values should be 1.0 (255/255)
+    cv::Scalar mean_val = cv::mean(result);
+    EXPECT_NEAR(mean_val[0], 1.0f, 1e-5f);
+}
+
+TEST(Preprocess, WideImageVerticalPadding) {
+    // 1920x480 image (4:1 ratio), resized to 640x160, padded to 640x640
+    cv::Mat input(480, 1920, CV_8UC3, cv::Scalar(200, 200, 200));
+    
+    cv::Mat result = preprocess(input, 640, 160, 0, 240);
+    
+    EXPECT_EQ(result.rows, 640);
+    EXPECT_EQ(result.cols, 640);
+    
+    // Verify top padding is zero
+    cv::Mat top_pad = result(cv::Rect(0, 0, 640, 240));
+    cv::Scalar top_sum = cv::sum(top_pad);
+    EXPECT_NEAR(top_sum[0], 0.0f, 1e-5f);
+    
+    // Verify bottom padding is zero
+    cv::Mat bottom_pad = result(cv::Rect(0, 400, 640, 240));
+    cv::Scalar bottom_sum = cv::sum(bottom_pad);
+    EXPECT_NEAR(bottom_sum[0], 0.0f, 1e-5f);
+    
+    // Verify center content is normalized
+    cv::Mat center = result(cv::Rect(0, 240, 640, 160));
+    cv::Scalar center_mean = cv::mean(center);
+    EXPECT_NEAR(center_mean[0], 200.0f / 255.0f, 1e-3f);
+}
+
+TEST(Preprocess, TallImageHorizontalPadding) {
+    // 480x1920 image (1:4 ratio), resized to 160x640, padded to 640x640
+    cv::Mat input(1920, 480, CV_8UC3, cv::Scalar(100, 100, 100));
+    
+    int letterbox_w = 160;
+    int letterbox_h = 640;
+    int pad_w = 240;
+    int pad_h = 0;
+    
+    cv::Mat result = preprocess(input, letterbox_w, letterbox_h, pad_w, pad_h);
+    
+    EXPECT_EQ(result.rows, 640);
+    EXPECT_EQ(result.cols, 640);
+    
+    // Verify left padding is zero
+    cv::Mat left_pad = result(cv::Rect(0, 0, pad_w, 640));
+    cv::Scalar left_sum = cv::sum(left_pad);
+    EXPECT_NEAR(left_sum[0], 0.0f, 1e-5f);
+    
+    // Verify right padding is zero
+    cv::Mat right_pad = result(cv::Rect(pad_w + letterbox_w, 0, pad_w, 640));
+    cv::Scalar right_sum = cv::sum(right_pad);
+    EXPECT_NEAR(right_sum[0], 0.0f, 1e-5f);
+    
+    // Verify center content is normalized
+    cv::Mat center = result(cv::Rect(pad_w, 0, letterbox_w, 640));
+    cv::Scalar center_mean = cv::mean(center);
+    EXPECT_NEAR(center_mean[0], 100.0f / 255.0f, 1e-3f);
+}
+
+TEST(Preprocess, VerySmallImage) {
+    // 64x64 image upscaled to 640x640 (10x scaling)
+    cv::Mat input(64, 64, CV_8UC3, cv::Scalar(50, 50, 50));
+    
+    cv::Mat result = preprocess(input, 640, 640, 0, 0);
+    
+    EXPECT_EQ(result.rows, 640);
+    EXPECT_EQ(result.cols, 640);
+    EXPECT_EQ(result.type(), CV_32FC3);
+    
+    // Verify normalization
+    cv::Scalar mean_val = cv::mean(result);
+    EXPECT_NEAR(mean_val[0], 50.0f / 255.0f, 1e-3f);
+    
+    // Verify no padding (all values should be similar, no zero regions)
+    double min_val;
+    cv::minMaxLoc(result, &min_val, nullptr);
+    EXPECT_GT(min_val, 0.0f);
+}
+
+TEST(Preprocess, AlreadyModelSize) {
+    // Input already matches model size (no resize, no pad needed)
+    cv::Mat input(640, 640, CV_8UC3, cv::Scalar(180, 180, 180));
+    
+    cv::Mat result = preprocess(input, 640, 640, 0, 0);
+    
+    EXPECT_EQ(result.rows, 640);
+    EXPECT_EQ(result.cols, 640);
+    EXPECT_EQ(result.type(), CV_32FC3);
+    
+    // Verify normalization only
+    cv::Scalar mean_val = cv::mean(result);
+    EXPECT_NEAR(mean_val[0], 180.0f / 255.0f, 1e-3f);
+    
+    // Verify no zero regions (no padding)
+    double min_val;
+    cv::minMaxLoc(result, &min_val, nullptr);
+    EXPECT_GT(min_val, 0.0f);
+}
