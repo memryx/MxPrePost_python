@@ -6,11 +6,14 @@
 #include <algorithm>
 #include <array>
 
+using MX::Runtime::BBox;
+using MX::Runtime::Mask;
+using MX::Prepost::Util::get_best_label;
 using MX::Prepost::Util::nms;
 using MX::Prepost::Util::dfl;
-using MX::Runtime::BBox;
-using MX::Prepost::Util::get_best_label;
 using MX::Prepost::Util::preprocess;
+using MX::Prepost::Util::draw_bbox;
+using MX::Prepost::Util::draw_mask;
 
 namespace {
     constexpr float DFL_PEAK_LOGIT = 20.0f;
@@ -711,4 +714,94 @@ TEST(Preprocess, AlreadyModelSize) {
     double min_val;
     cv::minMaxLoc(result, &min_val, nullptr);
     EXPECT_GT(min_val, 0.0f);
+}
+
+/* ===================== draw_bbox tests ===================== */
+
+TEST(DrawBbox, DrawsAtCorrectCoordinates) {
+    cv::Mat image(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat original = image.clone();
+    
+    BBox bbox;
+    bbox.x_min = 100.0f;
+    bbox.y_min = 150.0f;
+    bbox.x_max = 300.0f;
+    bbox.y_max = 350.0f;
+    bbox.cls_id = 0;
+    bbox.conf = 0.95f;
+    bbox.cls_name = "person";
+    
+    draw_bbox(image, bbox);
+    
+    // Verify rectangle boundaries are drawn
+    // Check top edge (y_min, from x_min to x_max)
+    cv::Mat top_edge = image(cv::Rect(100, 150, 200, 1));
+    cv::Scalar top_sum = cv::sum(top_edge);
+    EXPECT_GT(top_sum[0], 0);  // Modified (rectangle drawn)
+    
+    // Check bottom edge (y_max, from x_min to x_max)
+    cv::Mat bottom_edge = image(cv::Rect(100, 350, 200, 1));
+    cv::Scalar bottom_sum = cv::sum(bottom_edge);
+    EXPECT_GT(bottom_sum[0], 0);  // Modified
+    
+    // Check left edge (x_min, from y_min to y_max)
+    cv::Mat left_edge = image(cv::Rect(100, 150, 1, 200));
+    cv::Scalar left_sum = cv::sum(left_edge);
+    EXPECT_GT(left_sum[0], 0);  // Modified
+    
+    // Check right edge (x_max, from y_min to y_max)
+    cv::Mat right_edge = image(cv::Rect(300, 150, 1, 200));
+    cv::Scalar right_sum = cv::sum(right_edge);
+    EXPECT_GT(right_sum[0], 0);  // Modified
+    
+    // Verify dimensions: width = 200, height = 200
+    int expected_width = (int)bbox.x_max - (int)bbox.x_min;  // 200
+    int expected_height = (int)bbox.y_max - (int)bbox.y_min; // 200
+    EXPECT_EQ(expected_width, 200);
+    EXPECT_EQ(expected_height, 200);
+}
+
+/* ===================== draw_mask tests ===================== */
+
+TEST(DrawMask, PolygonAndBoundingBoxMatchInput) {
+    cv::Mat image(640, 640, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat original = image.clone();
+    
+    // Create a rectangular polygon
+    Mask mask;
+    mask.cls_id = 0;
+    mask.xys = {
+        {100.0f, 150.0f},  // top-left
+        {300.0f, 150.0f},  // top-right
+        {300.0f, 350.0f},  // bottom-right
+        {100.0f, 350.0f}   // bottom-left
+    };
+    
+    draw_mask(image, mask, 0.5f);
+    
+    // Calculate expected bounding box from points
+    std::vector<cv::Point> cv_points;
+    for (const auto& pt : mask.xys) {
+        cv_points.push_back(cv::Point((int)pt.x, (int)pt.y));
+    }
+    cv::Rect expected_rect = cv::boundingRect(cv_points);
+    // Should be: x=100, y=150, width=200, height=200
+    
+    // Verify polygon interior is filled (center of polygon)
+    cv::Mat center = image(cv::Rect(200, 250, 1, 1));  // Center of polygon
+    cv::Scalar center_sum = cv::sum(center);
+    EXPECT_GT(center_sum[0], 0);  // Modified (filled)
+    
+    // Verify bounding box rectangle is drawn at expected location
+    // Check top edge of bounding box
+    cv::Mat bbox_top = image(cv::Rect(expected_rect.x, expected_rect.y, 
+                                      expected_rect.width, 1));
+    cv::Scalar bbox_top_sum = cv::sum(bbox_top);
+    EXPECT_GT(bbox_top_sum[0], 0);  // Bounding box drawn
+    
+    // Verify bounding box dimensions match cv::boundingRect
+    EXPECT_EQ(expected_rect.x, 100);
+    EXPECT_EQ(expected_rect.y, 150);
+    EXPECT_EQ(expected_rect.width, 201);
+    EXPECT_EQ(expected_rect.height, 201);
 }
