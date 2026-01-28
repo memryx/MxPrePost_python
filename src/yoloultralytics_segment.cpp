@@ -3,8 +3,8 @@
 #include "config_finalizer.h"
 #include "utils.h"
 
-using namespace MX::Pipe;
-using namespace MX::Pipe::Util;
+using namespace MX::Runtime;
+using namespace MX::Prepost::Util;
 
 YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
                                                const YoloUserConfig& user_cfg) {
@@ -13,7 +13,7 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
 
     // init score manager
-    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
+    smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
     // init post-process layer params
     yolo_post_layers_[0] = {.coord_port = 0,
@@ -37,7 +37,7 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
                             .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
                             .stride = 32};
 
-    std::vector<MX::Pipe::Util::Grid> grids = {
+    std::vector<MX::Prepost::Util::Grid> grids = {
             {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
             {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
             {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
@@ -45,13 +45,13 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
-    return MX::Pipe::Util::preprocess(
+    return MX::Prepost::Util::preprocess(
             image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
 }
 
 void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
     for (const Mask& mask : result.masks) {
-        MX::Pipe::Util::draw_mask(image, mask);
+        MX::Prepost::Util::draw_mask(image, mask);
     }
 }
 
@@ -77,10 +77,10 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             // sigmoid is expensive and we only apply it if needed.
             float best_score;
             int best_label =
-                    MX::Pipe::Util::get_best_label(best_score,
-                                                   conf_base + i * cfg_.valid_classes.size(),
-                                                   cfg_.valid_classes,
-                                                   smgr_->inv_conf_thres);
+                    MX::Prepost::Util::get_best_label(best_score,
+                                                      conf_base + i * cfg_.valid_classes.size(),
+                                                      cfg_.valid_classes,
+                                                      smgr_->inv_conf_thres);
 
             // no label with sufficient score
             if (best_label == -1)
@@ -90,12 +90,12 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             best_score = smgr_->convert(best_score);
 
             // decode bbox (Distribution Focal Loss)
-            std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
-                                                             i / layer.width /* row */,
-                                                             i % layer.width /* col */,
-                                                             layer.stride,
-                                                             cfg_.model_w,
-                                                             cfg_.model_h);
+            std::array<float, 4> coord = MX::Prepost::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
+                                                                i / layer.width /* row */,
+                                                                i % layer.width /* col */,
+                                                                layer.stride,
+                                                                cfg_.model_w,
+                                                                cfg_.model_h);
 
             // convert to raw bbox coords
             coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
@@ -118,7 +118,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     }
 
     // apply NMS
-    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, cfg_.iou);
+    std::vector<int> keep_indices = MX::Prepost::Util::nms(all_boxes, cfg_.iou);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());

@@ -8,12 +8,12 @@
 #include <numpy/ndarraytypes.h>
 
 #include "memx/accl/MxAccl.h"
-#include "pipeline.h"
+#include "memx/prepost/MxPrepost.h"
 
 #include <opencv2/opencv.hpp>
 
 namespace py = pybind11;
-using namespace MX::Pipe;
+using namespace MX::Runtime;
 
 cv::Mat numpy_to_mat(const py::array& array) {
     py::array arr = py::array::ensure(array, py::array::c_style);
@@ -52,7 +52,7 @@ py::array mat_to_numpy(const cv::Mat& mat) {
         strides[i] = (size_t)mat.step[i];
     }
 
-    // If it's a standard 2D multi-channel image (H, W, C), 
+    // If it's a standard 2D multi-channel image (H, W, C),
     // OpenCV's mat.dims is 2, but numpy expects 3 dimensions.
     if (ndims == 2 && mat.channels() > 1) {
         shape.push_back((size_t)mat.channels());
@@ -72,17 +72,17 @@ py::array mat_to_numpy(const cv::Mat& mat) {
             py::buffer_info(mat.data, mat.elemSize1(), format, shape.size(), shape, strides));
 }
 
-class BindPipeline {
+class BindMxPrepost {
   public:
-    BindPipeline(py::object pyaccl,
-                 const std::string& task,
-                 int ori_width,
-                 int ori_height,
-                 float conf,
-                 float iou,
-                 std::string classmap_path,
-                 std::vector<int> valid_classes,
-                 bool fast_sigmoid) {
+    BindMxPrepost(py::object pyaccl,
+                  const std::string& task,
+                  int ori_width,
+                  int ori_height,
+                  float conf,
+                  float iou,
+                  std::string classmap_path,
+                  std::vector<int> valid_classes,
+                  bool fast_sigmoid) {
 
         YoloUserConfig config;
         config.ori_width = ori_width;
@@ -104,8 +104,8 @@ class BindPipeline {
         uintptr_t addr = ptr.cast<uintptr_t>();
         MX::Runtime::MxAccl* accl = reinterpret_cast<MX::Runtime::MxAccl*>(addr);
 
-        // create pipeline using factory method
-        pipeline_ = Pipeline::create(accl, task, config);
+        // create MxPrepost using factory method
+        prepost_ = MxPrepost::create(accl, task, config);
 
         // get input shape from model info
         MX::Types::MxModelInfo model_info = accl->get_model_info(0);
@@ -115,8 +115,8 @@ class BindPipeline {
         }
     }
 
-    ~BindPipeline() {
-        delete pipeline_;
+    ~BindMxPrepost() {
+        delete prepost_;
     }
 
     py::array preprocess(const py::array& arr) {
@@ -125,7 +125,7 @@ class BindPipeline {
         cv::Mat img = numpy_to_mat(arr);
 
         // call preprocess
-        cv::Mat padded = pipeline_->preprocess(img);
+        cv::Mat padded = prepost_->preprocess(img);
 
         // Reshape for model input
         int sizes[] = {in_shape_[0], in_shape_[1], in_shape_[2], in_shape_[3]};
@@ -135,7 +135,7 @@ class BindPipeline {
         return mat_to_numpy(reshaped);
     }
 
-    MX::Pipe::Result postprocess(const std::vector<py::array>& ofmaps) {
+    MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps) {
 
         // init ofmap ptrs
         if (ofmap_ptrs_.empty()) {
@@ -150,23 +150,23 @@ class BindPipeline {
         }
 
         // call postrocess
-        MX::Pipe::Result result;
-        pipeline_->postprocess(ofmap_ptrs_, result);
+        MX::Runtime::Result result;
+        prepost_->postprocess(ofmap_ptrs_, result);
         return result;
     }
 
-    py::array draw(py::array& arr, const MX::Pipe::Result& result) {
+    py::array draw(py::array& arr, const MX::Runtime::Result& result) {
         // convert numpy to cv::Mat
         cv::Mat img = numpy_to_mat(arr);
 
         // call draw
-        pipeline_->draw(img, result);
+        prepost_->draw(img, result);
 
         return mat_to_numpy(img);
     }
 
   private:
-    Pipeline* pipeline_;
+    MxPrepost* prepost_;
     std::vector<float*> ofmap_ptrs_;
     std::vector<int> in_shape_;
 };
@@ -177,27 +177,27 @@ static int numpy_import_array_wrapper() {
     return 0;
 }
 
-PYBIND11_MODULE(mxpipe, m) {
+PYBIND11_MODULE(mxprepost, m) {
     // helper to safely call import_array(), otherwise got segfault when parsing numpy arrays
     numpy_import_array_wrapper();
 
     // Result class
-    py::class_<MX::Pipe::Result>(m, "Result")
+    py::class_<MX::Runtime::Result>(m, "Result")
             .def(py::init<>())
             .def_readwrite("boxes", &Result::boxes)
             .def_readwrite("masks", &Result::masks)
             .def_readwrite("keypoints", &Result::keypoints);
 
     // Box class
-    py::class_<MX::Pipe::BBox>(m, "Box")
+    py::class_<MX::Runtime::BBox>(m, "Box")
             .def(py::init<>())
             .def_readwrite("xywh", &BBox::xywh)
             .def_readwrite("conf", &BBox::conf)
             .def_readwrite("cls_id", &BBox::cls_id)
             .def_readwrite("cls_name", &BBox::cls_name);
 
-    // Pipeline class
-    py::class_<BindPipeline>(m, "Pipeline")
+    // Prepost class
+    py::class_<BindMxPrepost>(m, "MxPrepost")
             .def(py::init<py::object,
                           std::string,
                           int,
@@ -217,7 +217,7 @@ PYBIND11_MODULE(mxpipe, m) {
                  py::arg("valid_classes") = py::list(),
                  py::arg("fast_sigmoid") = false,
                  R"doc(
-Create Pipeline.
+Create Prepost.
 
 Args:
   accl (MemryX accl): MemryX accelerator object. 
@@ -230,7 +230,7 @@ Args:
   valid_classes (list of ints): The classes to consider. [Default is all classes]
   fast_sigmoid (bool): Use fast sigmoid if True. [Default is False]
 )doc")
-            .def("draw", &BindPipeline::draw)
-            .def("preprocess", &BindPipeline::preprocess)
-            .def("postprocess", &BindPipeline::postprocess);
+            .def("draw", &BindMxPrepost::draw)
+            .def("preprocess", &BindMxPrepost::preprocess)
+            .def("postprocess", &BindMxPrepost::postprocess);
 }

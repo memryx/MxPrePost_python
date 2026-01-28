@@ -28,5 +28,5 @@ file(GLOB local_src
 
 add_executable(${app_name} ${local_src})
 
-target_link_libraries(${app_name}  mx_accl  ${OpenCV_LIBS} mxutils_gui mxpipe)
+target_link_libraries(${app_name}  mx_accl  ${OpenCV_LIBS} mxutils_gui mxprepost)
 target_link_libraries(${app_name} Qt5::Widgets Qt5::Core Qt5::Gui)

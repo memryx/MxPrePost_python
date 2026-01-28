@@ -1,4 +1,4 @@
-# Mx Pipeline Package
+# Mx Prepost Package
 
 This package provides a unified interface for model pre-processing and post-processing, designed for seamless integration within YOLOv8 - YOLOv11 applications such as  detection, segmentation, and pose estimation.
 
@@ -11,21 +11,21 @@ This interface is typically used inside the `input and output callbacks` of an a
 ## General Usage
 
 ```python
-from memryx import mxpipe # eventually this package will be placed under runtime
+from memryx import mxprepost # eventually this package will be placed under runtime
 
 class App:
     def __init__(self):
         # Initialize for a specific task
-        self.pipe = mxpipe.Pipeline(task="yolov8_det")
+        self.pp = mxprepost.Prepost(task="yolov8_det")
 
 
     def in_callback(self):
         frame = cv2.VideoCapture.read()
-        frame = self.pipe.preprocess(frame)  # preprocess
+        frame = self.pp.preprocess(frame)  # preprocess
         return frame
     
 	def out_callback(self, fmaps: list[FeatureMap]):
-        results = self.pipe.postprocess(fmaps) # postprocess
+        results = self.pp.postprocess(fmaps) # postprocess
 
         for r in results:
             boxes = r.boxes          # Boxes object for bounding box outputs
@@ -41,7 +41,7 @@ You can configure the behavior during initialization. This sets the base configu
 
 Example:
 ```python
-pipe = Pipeline(
+pp = Prepost(
     task="yolov8_det",          # [required] yolovX_Y (e.g. yolov8_det, yolov8_seg, yolov11_pose, etc.)
     ori_width=1280,             # [required] original image width
     ori_height=640,             # [required] original image height
@@ -60,8 +60,8 @@ NOTE:
 We provide supplementary `draw()` function call for convenient annotation.
 
 ```python
-results = pipe.postprocess(fmaps)
-annotated_image = pipe.draw(results, raw_image)
+results = pp.postprocess(fmaps)
+annotated_image = pp.draw(results, raw_image)
 
 # User handles display, e.g. cv2.imshow(...)
 ```
@@ -87,8 +87,8 @@ sh build.sh
 cd POST_API/samples/python
 
 # Create a symbolic link to the built module, note that python version here is based on your virtualenv
-# ex: ln -sfv ../../pymodule/build/mxpipe.cpython-310-x86_64-linux-gnu.so
-ln -sfv ../../pymodule/build/mxpipe.cpython-*.so
+# ex: ln -sfv ../../pymodule/build/mxprepost.cpython-310-x86_64-linux-gnu.so
+ln -sfv ../../pymodule/build/mxprepost.cpython-*.so
 
 # link to mxapi
 ln -sfv ../../extern/MX_API/mx_accl/pymodule/build/mxapi.cpython-*.so

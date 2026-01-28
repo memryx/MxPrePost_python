@@ -8,7 +8,7 @@ import queue
 from threading import Thread
 from collections import defaultdict
 import sys
-import mxpipe
+import mxprepost
 import mxapi
 
 video_stream_1 = "/home/mixtile/memryx/media/people_1.mp4"
@@ -74,8 +74,8 @@ class YoloApp:
         for i in range(self.num_streams):
             accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
 
-        # init MXPipe pipeline
-        self.pipe = mxpipe.Pipeline(
+        # init MXPipe prepost
+        self.prepost = mxprepost.MxPrepost(
             accl=accl,
             task=args.task,
             ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -113,8 +113,8 @@ class YoloApp:
                 # Put the frame in the cap_queue to be processed later
                 self.cap_queue[stream_id].put(frame)
 
-            # call preprocess from mxpipe
-            frame = self.pipe.preprocess(frame)
+            # call preprocess from mxprepost
+            frame = self.prepost.preprocess(frame)
 
             return frame
 
@@ -123,8 +123,8 @@ class YoloApp:
         Post-process the output from MXA.
         """
 
-        # call postprocess from mxpipe
-        result = self.pipe.postprocess(mxa_output)
+        # call postprocess from mxprepost
+        result = self.prepost.postprocess(mxa_output)
 
         # Queue detection results for display
         if self.show:
@@ -148,7 +148,7 @@ class YoloApp:
                     break
 
                 # Draw detections on the frame
-                display_img = self.pipe.draw(frame, result)
+                display_img = self.prepost.draw(frame, result)
 
                 # Add FPS to frame
                 fps_text = f"FPS: {self.fps_number[stream_id]:.2f}"

@@ -3,7 +3,7 @@
 #include "config_finalizer.h"
 #include "utils.h"
 
-using namespace MX::Pipe;
+using namespace MX::Runtime;
 
 YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
                                          const YoloUserConfig& user_cfg) {
@@ -12,7 +12,7 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
 
     // init score manager
-    smgr_ = std::make_unique<MX::Pipe::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
+    smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
     // init post-process layer params
     yolo_post_layers_[0] = {
@@ -52,7 +52,7 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
         }
     }
 
-    std::vector<MX::Pipe::Util::Grid> grids = {
+    std::vector<MX::Prepost::Util::Grid> grids = {
             {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
             {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
             {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
@@ -60,7 +60,7 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
-    return MX::Pipe::Util::preprocess(
+    return MX::Prepost::Util::preprocess(
             image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
 }
 
@@ -68,7 +68,7 @@ void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
 
     // draw bbox
     for (const BBox& bbox : result.boxes) {
-        MX::Pipe::Util::draw_bbox(image, bbox);
+        MX::Prepost::Util::draw_bbox(image, bbox);
     }
 
     // draw keypoints and skeleton
@@ -134,12 +134,12 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
             const Point2f& anchor = layer.anchors[i];
 
             // 1. Decode BBox (Distribution Focal Loss)
-            std::array<float, 4> coord = MX::Pipe::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
-                                                             i / layer.width /* row */,
-                                                             i % layer.width /* col */,
-                                                             layer.stride,
-                                                             cfg_.model_w,
-                                                             cfg_.model_h);
+            std::array<float, 4> coord = MX::Prepost::Util::dfl(coord_base + i * COORD_FMAP_SIZE,
+                                                                i / layer.width /* row */,
+                                                                i % layer.width /* col */,
+                                                                layer.stride,
+                                                                cfg_.model_w,
+                                                                cfg_.model_h);
 
             // Convert BBox to original image scale
             float x1 = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
@@ -187,7 +187,7 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
     }
 
     // apply NMS
-    std::vector<int> keep_indices = MX::Pipe::Util::nms(all_boxes, cfg_.iou);
+    std::vector<int> keep_indices = MX::Prepost::Util::nms(all_boxes, cfg_.iou);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());

@@ -8,6 +8,7 @@
 using MX::Pipe::Util::get_best_label;
 using MX::Pipe::Util::nms;
 using MX::Pipe::BBox;
+using MX::Prepost::Util::get_best_label;
 
 /* ===================== get_best_label tests ===================== */
 
