@@ -3,7 +3,7 @@
 #include "memx/accl/MxAccl.h"
 
 #include <fstream>
-using namespace MX::Pipe;
+using namespace MX::Runtime;
 
 namespace {  // anonymous namespace for helper functions
     std::vector<std::string> _load_classes(const std::string& file_path) {
@@ -34,12 +34,12 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
     MX::Types::MxModelInfo model_info = accl->get_model_info(0);
     if (model_info.use_model_shape_in == true) {
         throw std::runtime_error(
-                "use_model_shape of input must be false for Yolo models in MxPipeline");
+                "use_model_shape of input must be false for Yolo models in MxPrepost");
     }
 
     if (model_info.use_model_shape_out == true) {
         throw std::runtime_error(
-                "use_model_shape of output must be false for Yolo models in MxPipeline");
+                "use_model_shape of output must be false for Yolo models in MxPrepost");
     }
 
     // Required parameters

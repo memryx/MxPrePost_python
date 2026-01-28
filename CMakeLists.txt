@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(mxpipe)
+project(mxprepost)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -18,7 +18,7 @@ file(GLOB local_src src/*.cpp)
 
 find_package(OpenCV REQUIRED)
 
-add_library(mxpipe SHARED ${local_src})
+add_library(mxprepost SHARED ${local_src})
 
 # --------------------------------------------------
 # Testing logic:
@@ -40,16 +40,16 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-target_include_directories(mxpipe PRIVATE 
+target_include_directories(mxprepost PRIVATE 
     ${OpenCV_INCLUDE_DIRS}
     include/
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/MX_API/mx_accl/include
 )
 
-target_link_libraries(mxpipe ${OpenCV_LIBS} mx_accl)
+target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl)
 
 # Set RPATH for the build tree so the executable can find 
 # the 'mx_accl' shared library without manual LD_LIBRARY_PATH exports.
-set_target_properties(mxpipe PROPERTIES
+set_target_properties(mxprepost PROPERTIES
     BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/extern/MX_API/build/mx_accl"
 )

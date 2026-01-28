@@ -3,7 +3,7 @@
 
 #define FONT (cv::FONT_ITALIC)
 
-using namespace MX::Pipe;
+using namespace MX::Runtime;
 
 namespace {  // anonymous namespace for internal linkage
     constexpr int DEFAULT_FONT = cv::FONT_ITALIC;
@@ -30,7 +30,7 @@ namespace {  // anonymous namespace for internal linkage
     }
 }
 
-namespace MX::Pipe::Util {
+namespace MX::Prepost::Util {
 
     std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres) {
         if (boxes.empty())
