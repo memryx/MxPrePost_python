@@ -69,8 +69,8 @@ annotated_image = pp.draw(results, raw_image)
 ## Installation
 ```bash
 # clone
-git clone git@github.com:memryx/POST_API.git
-cd POST_API
+git clone git@github.com:memryx/MxPrepost.git
+cd MxPrepost
 git submodule update --init --recursive
 
 # activate python virtualenv
@@ -84,7 +84,7 @@ sh build.sh
 
 ### Python example:
 ```bash
-cd POST_API/samples/python
+cd MxPrepost/samples/python
 
 # Create a symbolic link to the built module, note that python version here is based on your virtualenv
 # ex: ln -sfv ../../pymodule/build/mxprepost.cpython-310-x86_64-linux-gnu.so
@@ -111,7 +111,7 @@ This library does not support legacy Accl object binding (e.g. SyncAccl, AsyncAc
 
 ### C++ example:
 ```bash
-cd POST_API/samples/cpp
+cd MxPrepost/samples/cpp
 
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc)
 
