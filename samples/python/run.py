@@ -28,7 +28,7 @@ class YoloApp:
         Initialization function.
         """
 
-        self.show = args.show
+        self.show = not args.show
 
         # Display control and stream initialization
         self.done = False
@@ -74,7 +74,7 @@ class YoloApp:
         for i in range(self.num_streams):
             accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
 
-        # init MXPipe prepost
+        # init mxprepost pipeline
         self.prepost = mxprepost.MxPrepost(
             accl=accl,
             task=args.task,
@@ -82,6 +82,7 @@ class YoloApp:
             ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
             conf=0.3,
             iou=0.4,
+            # classmap_path="classes.txt",
             # valid_classes=[0],
         )
 
@@ -125,7 +126,7 @@ class YoloApp:
 
         # call postprocess from mxprepost
         result = self.prepost.postprocess(mxa_output)
-
+        # raise "stop"
         # Queue detection results for display
         if self.show:
             self.result_queue[stream_id].put(result)
@@ -239,7 +240,7 @@ if __name__ == "__main__":
         nargs="+",
         dest="video_paths",
         action="store",
-        default=[video_stream_2],
+        default=["/dev/video0"],
         help="Path to video files for inference. Use '/dev/video0' for webcam. (Default:'/dev/video0')",
     )
 
