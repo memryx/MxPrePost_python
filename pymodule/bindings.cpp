@@ -82,6 +82,7 @@ class BindMxPrepost {
                   float iou,
                   std::string classmap_path,
                   std::vector<int> valid_classes,
+                  config.class_agnostic = class_agnostic;
                   bool fast_sigmoid) {
 
         YoloUserConfig config;

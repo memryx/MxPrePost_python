@@ -59,7 +59,7 @@ namespace MX::Prepost::Util {
         }
     };
 
-    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres);
+    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic);
 
     void draw_bbox(cv::Mat& image, const BBox& bbox);
 
