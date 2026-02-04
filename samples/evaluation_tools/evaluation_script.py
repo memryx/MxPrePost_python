@@ -54,7 +54,7 @@ def run_async(
             img = base_frame  # already preprocessed
 
             timed_frames += 1
-            yield img
+            yield base_frame
 
     def postprocess_callback(mxa_output, stream_id):
         """Callback for processing model outputs."""
@@ -64,8 +64,8 @@ def run_async(
             _ = prepost.postprocess(mxa_output)
 
         time_stamps.append(time.perf_counter())
-
-    accl.connect_stream(data_source_generator, postprocess_callback, stream_id=0)
+    data_source = data_source_generator()
+    accl.connect_stream(data_source, postprocess_callback, stream_id=0)
     accl.start()
     accl.wait()
 
