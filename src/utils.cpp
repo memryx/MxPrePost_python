@@ -32,70 +32,80 @@ namespace {  // anonymous namespace for internal linkage
 
 namespace MX::Prepost::Util {
 
-    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic) {
-        if (boxes.empty())
-            return {};
+    namespace {
+        std::vector<int> _nms_impl(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic) {
+            if (boxes.empty())
+                return {};
 
-        const int n = boxes.size();
+            const int n = boxes.size();
 
-        // 1. Pre-calculate areas to avoid redundant math in the IoU loop
-        std::vector<float> areas(n);
-        for (int i = 0; i < n; ++i) {
-            areas[i] = (boxes[i].x_max - boxes[i].x_min) * (boxes[i].y_max - boxes[i].y_min);
-        }
+            // 1. Pre-calculate areas to avoid redundant math in the IoU loop
+            std::vector<float> areas(n);
+            for (int i = 0; i < n; ++i) {
+                areas[i] = (boxes[i].x_max - boxes[i].x_min) * (boxes[i].y_max - boxes[i].y_min);
+            }
 
-        // 2. Sort indices based on conf scores
-        // We sort indices so we never move the actual BBox structs in memory
-        std::vector<int> indices(n);
-        std::iota(indices.begin(), indices.end(), 0);
-        std::sort(indices.begin(), indices.end(), [&](int i, int j) {
-            return boxes[i].conf > boxes[j].conf;
-        });
+            // 2. Sort indices based on conf scores
+            // We sort indices so we never move the actual BBox structs in memory
+            std::vector<int> indices(n);
+            std::iota(indices.begin(), indices.end(), 0);
+            std::sort(indices.begin(), indices.end(), [&](int i, int j) {
+                return boxes[i].conf > boxes[j].conf;
+            });
 
-        // 3. Bitset-style suppression for efficiency
-        std::vector<int> suppressed(n, 0);
-        std::vector<int> keep;
-        keep.reserve(n);  // Pre-allocate memory
+            // 3. Bitset-style suppression for efficiency
+            std::vector<int> suppressed(n, 0);
+            std::vector<int> keep;
+            keep.reserve(n);  // Pre-allocate memory
 
-        for (int i = 0; i < n; ++i) {
-            int idx_i = indices[i];
-            if (suppressed[idx_i])
-                continue;
-
-            keep.push_back(idx_i);
-
-            for (int j = i + 1; j < n; ++j) {
-                int idx_j = indices[j];
-                if (suppressed[idx_j])
+            for (int i = 0; i < n; ++i) {
+                int idx_i = indices[i];
+                if (suppressed[idx_i])
                     continue;
 
-                // If class-aware NMS, only suppress boxes of the same class
-                if (!class_agnostic && boxes[idx_i].cls_id != boxes[idx_j].cls_id) {
-                    continue;  // Skip if different classes
-                }
+                keep.push_back(idx_i);
 
-                // Manual IoU inline for speed
-                float inter_x_min = std::max(boxes[idx_i].x_min, boxes[idx_j].x_min);
-                float inter_y_min = std::max(boxes[idx_i].y_min, boxes[idx_j].y_min);
-                float inter_x_max = std::min(boxes[idx_i].x_max, boxes[idx_j].x_max);
-                float inter_y_max = std::min(boxes[idx_i].y_max, boxes[idx_j].y_max);
+                for (int j = i + 1; j < n; ++j) {
+                    int idx_j = indices[j];
+                    if (suppressed[idx_j])
+                        continue;
 
-                float inter_w = std::max(0.0f, inter_x_max - inter_x_min);
-                float inter_h = std::max(0.0f, inter_y_max - inter_y_min);
-                float inter_area = inter_w * inter_h;
+                    // If class-aware NMS, only suppress boxes of the same class
+                    if (!class_agnostic && boxes[idx_i].cls_id != boxes[idx_j].cls_id) {
+                        continue;  // Skip if different classes
+                    }
 
-                if (inter_area <= 0)
-                    continue;
+                    // Manual IoU inline for speed
+                    float inter_x_min = std::max(boxes[idx_i].x_min, boxes[idx_j].x_min);
+                    float inter_y_min = std::max(boxes[idx_i].y_min, boxes[idx_j].y_min);
+                    float inter_x_max = std::min(boxes[idx_i].x_max, boxes[idx_j].x_max);
+                    float inter_y_max = std::min(boxes[idx_i].y_max, boxes[idx_j].y_max);
 
-                float iou = inter_area / (areas[idx_i] + areas[idx_j] - inter_area);
+                    float inter_w = std::max(0.0f, inter_x_max - inter_x_min);
+                    float inter_h = std::max(0.0f, inter_y_max - inter_y_min);
+                    float inter_area = inter_w * inter_h;
 
-                if (iou > iou_thres) {
-                    suppressed[idx_j] = 1;
+                    if (inter_area <= 0)
+                        continue;
+
+                    float iou = inter_area / (areas[idx_i] + areas[idx_j] - inter_area);
+
+                    if (iou > iou_thres) {
+                        suppressed[idx_j] = 1;
+                    }
                 }
             }
-        }
 
-        return keep;
+            return keep;
+        }
+    }
+
+    std::vector<int> nms_class_aware(const std::vector<BBox>& boxes, float iou_thres) {
+        return _nms_impl(boxes, iou_thres, /*class_agnostic=*/false);
+    }
+
+    std::vector<int> nms_class_agnostic(const std::vector<BBox>& boxes, float iou_thres) {
+        return _nms_impl(boxes, iou_thres, /*class_agnostic=*/true);
     }
 
     void draw_bbox(cv::Mat& image, const BBox& bbox) {

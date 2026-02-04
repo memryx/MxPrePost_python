@@ -37,6 +37,10 @@ namespace MX {
             // misc
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
+            
+            // NMS function pointer (set once in constructor)
+            using NmsFunc = std::vector<int>(*)(const std::vector<BBox>&, float);
+            NmsFunc nms_func_;
         };
 
     }

@@ -82,15 +82,17 @@ class BindMxPrepost {
                   float iou,
                   std::string classmap_path,
                   std::vector<int> valid_classes,
-                  config.class_agnostic = class_agnostic;
-                  bool fast_sigmoid) {
+                  bool fast_sigmoid, 
+                  bool class_agnostic = false) {
 
         YoloUserConfig config;
         config.ori_width = ori_width;
         config.ori_height = ori_height;
         config.conf = conf;
         config.iou = iou;
+        config.class_agnostic = class_agnostic;
         config.fast_sigmoid = fast_sigmoid;
+        
 
         // convert valid_classes vector to unordered_set
         config.valid_classes =
@@ -207,6 +209,7 @@ PYBIND11_MODULE(mxprepost, m) {
                           float,
                           std::string,
                           std::vector<int>,
+                          bool,
                           bool>(),
                  py::arg("accl"),
                  py::arg("task"),
@@ -216,6 +219,7 @@ PYBIND11_MODULE(mxprepost, m) {
                  py::arg("iou") = 0.4,
                  py::arg("classmap_path") = "",
                  py::arg("valid_classes") = py::list(),
+                 py::arg("class_agnostic") = false,
                  py::arg("fast_sigmoid") = false,
                  R"doc(
 Create Prepost.
@@ -230,6 +234,7 @@ Args:
   classmap_path (str): The path for a file containing classes separated in each line. [Default using COCO Classes]
   valid_classes (list of ints): The classes to consider. [Default is all classes]
   fast_sigmoid (bool): Use fast sigmoid if True. [Default is False]
+  class_agnostic (bool): Use class-agnostic NMS if True. [Default is False]
 )doc")
             .def("draw", &BindMxPrepost::draw)
             .def("preprocess", &BindMxPrepost::preprocess)

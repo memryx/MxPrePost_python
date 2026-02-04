@@ -1,4 +1,4 @@
-#include "yoloultralytics_segment.h"
+#include "yoloultralytics_segment_v2.h"
 
 #include "config_finalizer.h"
 #include "utils.h"
@@ -6,7 +6,7 @@
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
+YoloUltralyticsSegmentV2::YoloUltralyticsSegmentV2(MX::Runtime::MxAccl* accl,
                                                const YoloUserConfig& user_cfg) {
 
     // init settings from config
@@ -49,18 +49,18 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
     };
 }
 
-cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
+cv::Mat YoloUltralyticsSegmentV2::preprocess(const cv::Mat& image) {
     return MX::Prepost::Util::preprocess(
             image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
 }
 
-void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
+void YoloUltralyticsSegmentV2::draw(cv::Mat& image, const Result& result) {
     for (const Mask& mask : result.masks) {
         MX::Prepost::Util::draw_mask(image, mask);
     }
 }
 
-void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Result& result) {
+void YoloUltralyticsSegmentV2::postprocess(const std::vector<float*>& outputs, Result& result) {
 
     // Candidate Gathering
     std::vector<BBox> all_boxes;

@@ -9,10 +9,10 @@ namespace MX::Prepost::Util {
 
 namespace MX {
     namespace Runtime {
-        class YoloUltralyticsSegment : public MX::Runtime::MxPrepost {
+        class YoloUltralyticsSegmentV2 : public MX::Runtime::MxPrepost {
 
           public:
-            YoloUltralyticsSegment(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
+            YoloUltralyticsSegmentV2(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;
