@@ -9,8 +9,7 @@
 using MX::Runtime::BBox;
 using MX::Runtime::Mask;
 using MX::Prepost::Util::get_best_label;
-using MX::Prepost::Util::nms_class_agnostic;
-using MX::Prepost::Util::nms_class_aware;
+using MX::Prepost::Util::nms;
 using MX::Prepost::Util::dfl;
 using MX::Prepost::Util::preprocess;
 using MX::Prepost::Util::draw_bbox;
@@ -74,7 +73,7 @@ TEST(GetBestLabel, EmptyValidClasses) {
 
 TEST(NMS, EmptyInput) {
     std::vector<BBox> boxes;
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     EXPECT_EQ(result.size(), 0);
 }
 
@@ -82,7 +81,7 @@ TEST(NMS, SingleBox) {
     std::vector<BBox> boxes = {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 0, "")
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     EXPECT_EQ(result.size(), 1);
     EXPECT_EQ(result[0], 0);
 }
@@ -96,7 +95,7 @@ TEST(NMS, NoOverlap) {
         BBox(20.0f, 20.0f, 30.0f, 30.0f, 0.7f, 1, ""), // boxes[1]
         BBox(40.0f, 40.0f, 50.0f, 50.0f, 0.8f, 2, "")  // boxes[2]
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     
     // All boxes should be kept, in descending confidence order
     EXPECT_EQ(result.size(), 3);
@@ -114,7 +113,7 @@ TEST(NMS, PerfectOverlap) {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.9f, 0, ""),  // boxes[0] - class 0
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.5f, 0, "")   // boxes[1] - class 0, identical coordinates
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     
     EXPECT_EQ(result.size(), 1);
     EXPECT_EQ(result[0], 0);  // Only higher-confidence box kept
@@ -134,7 +133,7 @@ TEST(NMS, IoUThresholdBoundaries) {
             BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.9f, 0, ""),  // boxes[0] - higher conf
             BBox(5.0f, 0.0f, 15.0f, 10.0f, 0.5f, 1, "")   // boxes[1] - lower conf
         };
-        std::vector<int> result = nms_class_aware(boxes, 0.5f);
+        std::vector<int> result = nms(boxes, 0.5f, false);
         EXPECT_EQ(result.size(), 2) << "Both boxes should be kept when IoU (0.333) < threshold (0.5)";
         EXPECT_EQ(result[0], 0);
         EXPECT_EQ(result[1], 1);
@@ -158,7 +157,7 @@ TEST(NMS, IoUThresholdBoundaries) {
             BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.9f, 0, ""),   // boxes[0] - area = 100
             BBox(0.0f, 0.0f, 20.0f, 10.0f, 0.5f, 1, "")    // boxes[1] - area = 200, intersection = 100
         };
-        std::vector<int> result = nms_class_aware(boxes, 0.5f);
+        std::vector<int> result = nms(boxes, 0.5f, false);
         EXPECT_EQ(result.size(), 2) << "Both boxes should be kept when IoU (0.5) == threshold (0.5) due to strict > check";
         EXPECT_EQ(result[0], 0);
         EXPECT_EQ(result[1], 1);
@@ -172,7 +171,7 @@ TEST(NMS, IoUThresholdBoundaries) {
             BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.9f, 0, ""),  // boxes[0] - class 0, higher conf
             BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.5f, 0, "")   // boxes[1] - class 0, lower conf, perfect overlap
         };
-        std::vector<int> result = nms_class_aware(boxes, 0.5f);
+        std::vector<int> result = nms(boxes, 0.5f, false);
         EXPECT_EQ(result.size(), 1) << "Lower confidence box should be suppressed when IoU (1.0) > threshold (0.5)";
         EXPECT_EQ(result[0], 0);
     }
@@ -188,7 +187,7 @@ TEST(NMS, MultipleOverlaps) {
         BBox(2.0f, 2.0f, 12.0f, 12.0f, 0.5f, 0, ""),   // boxes[3] - class 0, IoU ≈ 0.471 < 0.5 
         BBox(1.5f, 1.5f, 11.5f, 11.5f, 0.4f, 0, "")    // boxes[4] - class 0, IoU ≈ 0.556 > 0.5 
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     
     EXPECT_EQ(result.size(), 2);  // Only highest conf kept and boxes[3] is kept
     EXPECT_EQ(result[0], 0);       // Should be boxes[0]
@@ -202,7 +201,7 @@ TEST(NMS, TieConfidence) {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 0, ""),   // boxes[0] - class 0, conf = 0.8
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 0, "")    // boxes[1] - class 0, conf = 0.8 (tie), perfect overlap
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     
     // Only one should be kept (order may vary due to unstable sort)
     EXPECT_EQ(result.size(), 1);
@@ -218,7 +217,7 @@ TEST(NMS, ClassAgnosticSameConfidence) {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 0, "person"),    // boxes[0] - class 0, conf = 0.8
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 1, "car")        // boxes[1] - class 1, conf = 0.8 (tie), perfect overlap
     };
-    std::vector<int> result = nms_class_agnostic(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, true);
     
     // Current behavior: One will be suppressed (IoU = 1.0 > 0.5) despite different classes
     // Due to unstable sort with equal confidence, either could be kept
@@ -234,7 +233,7 @@ TEST(NMS, ClassAgnosticDifferentConfidence) {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.9f, 0, "person"),    // boxes[0] - class 0, conf = 0.9
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.5f, 1, "car")        // boxes[1] - class 1, conf = 0.5, perfect overlap
     };
-    std::vector<int> result = nms_class_agnostic(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, true);
     
     // Current behavior: Lower confidence box suppressed despite different class
     EXPECT_EQ(result.size(), 1);
@@ -248,7 +247,7 @@ TEST(NMS, ClassAwareSameConfidence) {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 0, "person"),    // boxes[0] - class 0, conf = 0.8
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.8f, 1, "car")        // boxes[1] - class 1, conf = 0.8 (tie), perfect overlap
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     
     // Expected: Both kept (different classes)
     EXPECT_EQ(result.size(), 2);
@@ -264,7 +263,7 @@ TEST(NMS, ClassAwareDifferentConfidence) {
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.9f, 0, "person"),    // boxes[0] - class 0, conf = 0.9
         BBox(0.0f, 0.0f, 10.0f, 10.0f, 0.5f, 1, "car")        // boxes[1] - class 1, conf = 0.5, perfect overlap
     };
-    std::vector<int> result = nms_class_aware(boxes, 0.5f);
+    std::vector<int> result = nms(boxes, 0.5f, false);
     
     // Expected: Both kept (different classes)
     EXPECT_EQ(result.size(), 2);

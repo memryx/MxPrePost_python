@@ -14,11 +14,6 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
 
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
-    
-    // init NMS function pointer (set once, used every frame)
-    nms_func_ = cfg_.class_agnostic 
-        ? &MX::Prepost::Util::nms_class_agnostic 
-        : &MX::Prepost::Util::nms_class_aware;
 
     // init post-process layer params
     yolo_post_layers_[0] = {.coord_port = 0,
@@ -123,7 +118,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     }
 
     // apply NMS
-    std::vector<int> keep_indices = nms_func_(all_boxes, cfg_.iou);
+    std::vector<int> keep_indices = MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());
