@@ -61,6 +61,12 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
     std::vector<BBox> all_boxes;
     all_boxes.reserve(total_preds_);
 
+    const int num_classes_total = static_cast<int>(cfg_.class_labels.size());
+
+    const int kNumAnchors = 3;
+    const int per_anchor = 5 + num_classes_total;  // [tx,ty,tw,th,obj] + classes
+    const int per_cell = kNumAnchors * per_anchor;
+
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* out_base = outputs.at(layer.out_port);
@@ -68,7 +74,7 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
         for (size_t i = 0; i < layer.height * layer.width; ++i) {
 
             // Cell base points to 255 floats: [a0(85) | a1(85) | a2(85)]
-            float* cell = out_base + i * 255;
+            float* cell = out_base + i * per_cell;
 
             // Pick the best anchor+class using RAW logits (no sigmoid unless needed)
             int best_label = -1;
@@ -82,7 +88,7 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
             // - select best class by logit (monotonic w.r.t sigmoid)
             // - only convert (sigmoid) for the winning candidate (same style as Ultralytics code)
             for (int a = 0; a < 3; ++a) {
-                float* p = cell + a * 85;  // Kperanchor
+                float* p = cell + a * per_anchor;  // Kperanchor
 
                 const float obj_logit = p[4];
 
@@ -130,7 +136,7 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
             // NOTE: bbox decoding + storage happens after this point
             // (not shown here because your snippet stops before decode)
             // Decode bbox for the chosen anchor (YOLOv7 decode)
-            float* p = cell + best_anchor * 85;
+            float* p = cell + best_anchor * per_anchor;
 
             const float tx = p[0];
             const float ty = p[1];
@@ -146,17 +152,17 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
             const float row = static_cast<float>(i / layer.width);
             const float col = static_cast<float>(i % layer.width);
 
-            // TODO: Replace these with your real anchors
+            // TODO: there may be an issue with these hard coded anchors.
             // anchors[layer_id][anchor_id] = (w,h) in model-input pixels
             static const float anchors_w[3][3] = {
-                    {12.f, 19.f, 40.f},     // stride 8
-                    {36.f, 76.f, 72.f},     // stride 16
-                    {142.f, 192.f, 459.f},  // stride 32
+                    {10.f, 16.f, 33.f},     // P3/8
+                    {30.f, 62.f, 59.f},     // P4/16
+                    {116.f, 156.f, 373.f},  // P5/32
             };
             static const float anchors_h[3][3] = {
-                    {16.f, 36.f, 28.f},
-                    {75.f, 55.f, 146.f},
-                    {110.f, 243.f, 401.f},
+                    {13.f, 30.f, 23.f},    // P3/8
+                    {61.f, 45.f, 119.f},   // P4/16
+                    {90.f, 198.f, 326.f},  // P5/32
             };
 
             // center
