@@ -1,6 +1,7 @@
 #include "MxPrepost.h"
 
 #include "yolo10_detect.h"
+#include "yolo7_detect.h"
 #include "yoloultralytics_detect.h"
 #include "yoloultralytics_pose.h"
 #include "yoloultralytics_segment.h"
@@ -10,7 +11,9 @@ using namespace MX::Runtime;
 MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
                              const std::string& task,
                              const YoloUserConfig& config) {
-    if (task == "yolov8_det") {
+    if (task == "yolov7_det") {
+        return new Yolo7Detect(accl, config);
+    } else if (task == "yolov8_det") {
         return new YoloUltralyticsDetect(accl, config);
     } else if (task == "yolov8_seg") {
         return new YoloUltralyticsSegment(accl, config);
