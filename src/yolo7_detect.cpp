@@ -155,14 +155,14 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
             // TODO: there may be an issue with these hard coded anchors.
             // anchors[layer_id][anchor_id] = (w,h) in model-input pixels
             static const float anchors_w[3][3] = {
-                    {10.f, 16.f, 33.f},     // P3/8
-                    {30.f, 62.f, 59.f},     // P4/16
-                    {116.f, 156.f, 373.f},  // P5/32
+                    {12.f, 19.f, 40.f},     // stride 8
+                    {36.f, 76.f, 72.f},     // stride 16
+                    {142.f, 192.f, 459.f},  // stride 32
             };
             static const float anchors_h[3][3] = {
-                    {13.f, 30.f, 23.f},    // P3/8
-                    {61.f, 45.f, 119.f},   // P4/16
-                    {90.f, 198.f, 326.f},  // P5/32
+                    {16.f, 36.f, 28.f},
+                    {75.f, 55.f, 146.f},
+                    {110.f, 243.f, 401.f},
             };
 
             // center
