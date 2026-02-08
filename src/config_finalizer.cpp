@@ -56,6 +56,7 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
     // Optional parameters with defaults
     final.conf = user.conf;
     final.iou = user.iou;
+    final.class_agnostic = user.class_agnostic;
     final.fast_sigmoid = user.fast_sigmoid;
 
     // For Class Labels

@@ -59,7 +59,10 @@ namespace MX::Prepost::Util {
         }
     };
 
-    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres);
+    // Non-maximum suppression (NMS)
+    // - class_agnostic=false: boxes of different classes do not suppress each other (class-aware)
+    // - class_agnostic=true: boxes suppress each other regardless of class (class-agnostic)
+    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic = false);
 
     void draw_bbox(cv::Mat& image, const BBox& bbox);
 
