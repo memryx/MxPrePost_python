@@ -167,7 +167,7 @@ namespace MX {
             //  [optional] List of class IDs to return. All other detections will be ignored (e.g.,
             //  [0] for person only in COCO dataset).
             std::unordered_set<int> valid_classes;
-
+            bool class_agnostic = false; // [Optional] Use class agnostic or not
             bool fast_sigmoid = false;  // [Optional] Use fast sigmoid or not
         };
 
@@ -177,6 +177,7 @@ namespace MX {
             float conf;
             float iou;
             std::vector<int> valid_classes;
+            bool class_agnostic;
             bool fast_sigmoid;
 
             // extra params for compared to YoloUserConfig

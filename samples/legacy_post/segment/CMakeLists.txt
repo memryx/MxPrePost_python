@@ -8,6 +8,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(OpenCV REQUIRED)
 find_package(Qt5 COMPONENTS Widgets Core Gui REQUIRED)
 
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    message("Debug mode")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O0 -g")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3")
+endif()
+
 include_directories(${OpenCV_INCLUDE_DIRS}
                     )
 

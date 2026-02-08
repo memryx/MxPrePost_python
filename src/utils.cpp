@@ -32,7 +32,7 @@ namespace {  // anonymous namespace for internal linkage
 
 namespace MX::Prepost::Util {
 
-    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres) {
+    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic) {
         if (boxes.empty())
             return {};
 
@@ -68,6 +68,11 @@ namespace MX::Prepost::Util {
                 int idx_j = indices[j];
                 if (suppressed[idx_j])
                     continue;
+
+                // If class-aware NMS, only suppress boxes of the same class
+                if (!class_agnostic && boxes[idx_i].cls_id != boxes[idx_j].cls_id) {
+                    continue;  // Skip if different classes
+                }
 
                 // Manual IoU inline for speed
                 float inter_x_min = std::max(boxes[idx_i].x_min, boxes[idx_j].x_min);
