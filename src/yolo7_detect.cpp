@@ -195,7 +195,8 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
         }
     }
     // apply NMS
-    std::vector<int> keep_indices = MX::Prepost::Util::nms(all_boxes, cfg_.iou);
+    std::vector<int> keep_indices =
+            MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());
