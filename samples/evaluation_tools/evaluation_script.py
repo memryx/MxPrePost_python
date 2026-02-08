@@ -13,13 +13,12 @@ def run_async(
     # Initialize accelerator
     local = False
 
-    use_model_shape = [False, False] #if post_model else [False, False]
+    use_model_shape = [False, True] if post_model else [False, False]
 
     accl = mxapi.MxAccl(dfp_path, [0], use_model_shape, local)
     if post_model:
         accl.connect_post_model(post_model)
 
-    # Fixed "display" size (used by mxprepost)
     disp_w = 640
     disp_h = 640
 
@@ -48,24 +47,31 @@ def run_async(
         nonlocal timed_frames
 
         while timed_frames < max_frames:
-            # if prepost:
-            # img = prepost.preprocess(base_frame)
-            # else:
-            img = base_frame  # already preprocessed
 
             timed_frames += 1
             yield base_frame
+
+    def postprocess_mxprepost_callback(mxa_output, stream_id):
+        """Callback for processing model outputs."""
+        nonlocal time_stamps
+
+        _ = prepost.postprocess(mxa_output)
+
+        time_stamps.append(time.perf_counter())
 
     def postprocess_callback(mxa_output, stream_id):
         """Callback for processing model outputs."""
         nonlocal time_stamps
 
-        if prepost:
-            _ = prepost.postprocess(mxa_output)
-
         time_stamps.append(time.perf_counter())
+
     data_source = data_source_generator()
-    accl.connect_stream(data_source, postprocess_callback, stream_id=0)
+    
+    if prepost:
+        accl.connect_stream(data_source, postprocess_mxprepost_callback, stream_id=0)
+    else:
+        accl.connect_stream(data_source, postprocess_callback, stream_id=0)
+
     accl.start()
     accl.wait()
 
