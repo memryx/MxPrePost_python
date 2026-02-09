@@ -12,7 +12,7 @@ namespace MX {
         class YoloUltralyticsSegment : public MX::Runtime::MxPrepost {
 
           public:
-            YoloUltralyticsSegment(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
+            YoloUltralyticsSegment(MX::Runtime::MxAccl* accl, const YoloUserConfig& config, const std::string& task = "");
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;
@@ -37,6 +37,8 @@ namespace MX {
 
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
+            uint8_t mask_proto_port_;
+
         };
 
     }

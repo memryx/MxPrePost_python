@@ -17,6 +17,7 @@ endif()
 file(GLOB local_src src/*.cpp)
 
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 add_library(mxprepost SHARED ${local_src})
 
@@ -46,7 +47,7 @@ target_include_directories(mxprepost PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/MX_API/mx_accl/include
 )
 
-target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl)
+target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl yaml-cpp::yaml-cpp)
 
 # Set RPATH for the build tree so the executable can find 
 # the 'mx_accl' shared library without manual LD_LIBRARY_PATH exports.

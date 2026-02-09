@@ -16,7 +16,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
     } else if (task == "yolov8_det") {
         return new YoloUltralyticsDetect(accl, config);
     } else if (task == "yolov8_seg") {
-        return new YoloUltralyticsSegment(accl, config);
+        return new YoloUltralyticsSegment(accl, config, task);
     } else if (task == "yolov8_pose") {
         return new YoloUltralyticsPose(accl, config);
     } else if (task == "yolov9_det") {
@@ -26,7 +26,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
     } else if (task == "yolov11_det") {
         return new YoloUltralyticsDetect(accl, config);
     } else if (task == "yolov11_seg") {
-        return new YoloUltralyticsSegment(accl, config);
+        return new YoloUltralyticsSegment(accl, config, task);
     } else if (task == "yolov11_pose") {
         return new YoloUltralyticsPose(accl, config);
     }

@@ -1,0 +1,55 @@
+yolov8-seg:
+  description: "YOLOv8 Segmentation Model Port Configuration"
+  layers:
+    layer_0:  # 80x80 grid, stride 8
+      coord_port: 0
+      coord_shape: [64, 80, 80]
+      conf_port: 1
+      conf_shape: [80, 80, 80]
+      mask_coef_port: 3
+      mask_coef_shape: [32, 80, 80]
+    layer_1:  # 40x40 grid, stride 16
+      coord_port: 4
+      coord_shape: [64, 40, 40]
+      conf_port: 5
+      conf_shape: [80, 40, 40]
+      mask_coef_port: 6
+      mask_coef_shape: [32, 40, 40]
+    layer_2:  # 20x20 grid, stride 32
+      coord_port: 7
+      coord_shape: [64, 20, 20]
+      conf_port: 8
+      conf_shape: [80, 20, 20]
+      mask_coef_port: 9
+      mask_coef_shape: [32, 20, 20]
+    mask_proto_port: 2
+    mask_proto_shape: [32, 160, 160]
+  port_order: [coord, conf, mask_proto, mask_coef, coord, conf, mask_coef, coord, conf, mask_coef]
+
+yolo11-seg:
+  description: "YOLO11 Segmentation Model Port Configuration"
+  layers:
+    layer_0:  # 80x80 grid, stride 8
+      coord_port: 0
+      coord_shape: [64, 80, 80]
+      mask_coef_port: 2
+      mask_coef_shape: [32, 80, 80]
+      conf_port: 3
+      conf_shape: [80, 80, 80]
+    layer_1:  # 40x40 grid, stride 16
+      coord_port: 4
+      coord_shape: [64, 40, 40]
+      mask_coef_port: 5
+      mask_coef_shape: [32, 40, 40]
+      conf_port: 6
+      conf_shape: [80, 40, 40]
+    layer_2:  # 20x20 grid, stride 32
+      coord_port: 7
+      coord_shape: [64, 20, 20]
+      mask_coef_port: 8
+      mask_coef_shape: [32, 20, 20]
+      conf_port: 9
+      conf_shape: [80, 20, 20]
+    mask_proto_port: 1
+    mask_proto_shape: [32, 160, 160]
+  port_order: [coord, mask_proto, mask_coef, conf, coord, mask_coef, conf, coord, mask_coef, conf]

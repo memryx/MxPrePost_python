@@ -30,6 +30,7 @@ execute_process(
 )
 
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # Include directories
 target_include_directories(mxprepost PRIVATE
@@ -38,7 +39,7 @@ target_include_directories(mxprepost PRIVATE
                            ${CMAKE_CURRENT_SOURCE_DIR}/../include
                            ${CMAKE_CURRENT_SOURCE_DIR}/../extern/MX_API/mx_accl/include)
 
-target_link_libraries(mxprepost PRIVATE ${OpenCV_LIBS} mx_accl)
+target_link_libraries(mxprepost PRIVATE ${OpenCV_LIBS} mx_accl yaml-cpp::yaml-cpp)
 
 # Set RPATH for the build tree so the executable can find 
 # the 'mx_accl' shared library without manual LD_LIBRARY_PATH exports.
