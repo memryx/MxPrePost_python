@@ -12,7 +12,7 @@ namespace MX {
         class Yolo10Detect : public MX::Runtime::MxPrepost {
 
           public:
-            Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
+            Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& config, const std::string& task = "");
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;

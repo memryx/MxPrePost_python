@@ -22,7 +22,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
     } else if (task == "yolov9_det") {
         return new YoloUltralyticsDetect(accl, config, task);
     } else if (task == "yolov10_det") {
-        return new Yolo10Detect(accl, config);
+        return new Yolo10Detect(accl, config, task);
     } else if (task == "yolov11_det") {
         return new YoloUltralyticsDetect(accl, config, task);
     } else if (task == "yolov11_seg") {
