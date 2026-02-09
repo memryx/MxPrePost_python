@@ -13,7 +13,7 @@ namespace MX {
         class YoloUltralyticsPose : public MX::Runtime::MxPrepost {
 
           public:
-            YoloUltralyticsPose(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
+            YoloUltralyticsPose(MX::Runtime::MxAccl* accl, const YoloUserConfig& config, const std::string& task = "");
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;

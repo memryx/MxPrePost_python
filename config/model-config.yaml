@@ -53,3 +53,55 @@ yolo11-seg:
     mask_proto_port: 1
     mask_proto_shape: [32, 160, 160]
   port_order: [coord, mask_proto, mask_coef, conf, coord, mask_coef, conf, coord, mask_coef, conf]
+
+yolo8-pose:
+  description: "YOLO8 Pose Model Port Configuration"
+  layers:
+    layer_0:  # 80x80 grid, stride 8
+      coord_port: 0
+      coord_shape: [64, 80, 80]
+      conf_port: 1
+      conf_shape: [1, 80, 80]
+      keypt_port: 2
+      keypt_shape: [51, 80, 80]
+    layer_1:  # 40x40 grid, stride 16
+      coord_port: 3
+      coord_shape: [64, 40, 40]
+      conf_port: 4
+      conf_shape: [1, 40, 40]
+      keypt_port: 5
+      keypt_shape: [51, 40, 40]
+    layer_2:  # 20x20 grid, stride 32
+      coord_port: 6
+      coord_shape: [64, 20, 20]
+      conf_port: 7
+      conf_shape: [1, 20, 20]
+      keypt_port: 8
+      keypt_shape: [51, 20, 20]
+  port_order: [coord, conf, keypt, coord, conf, keypt, coord, conf, keypt]
+
+yolo11-pose:
+  description: "YOLO11 Pose Model Port Configuration"
+  layers:
+    layer_0:  # 80x80 grid, stride 8
+      coord_port: 0
+      coord_shape: [64, 80, 80]
+      conf_port: 2
+      conf_shape: [1, 80, 80]
+      keypt_port: 1
+      keypt_shape: [51, 80, 80]
+    layer_1:  # 40x40 grid, stride 16
+      coord_port: 3
+      coord_shape: [64, 40, 40]
+      conf_port: 5
+      conf_shape: [1, 40, 40]
+      keypt_port: 4
+      keypt_shape: [51, 40, 40]
+    layer_2:  # 20x20 grid, stride 32
+      coord_port: 6
+      coord_shape: [64, 20, 20]
+      conf_port: 8
+      conf_shape: [1, 20, 20]
+      keypt_port: 7
+      keypt_shape: [51, 20, 20]
+  port_order: [coord, keypt, conf, coord, keypt, conf, coord, keypt, conf]

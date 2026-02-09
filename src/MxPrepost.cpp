@@ -18,7 +18,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
     } else if (task == "yolov8_seg") {
         return new YoloUltralyticsSegment(accl, config, task);
     } else if (task == "yolov8_pose") {
-        return new YoloUltralyticsPose(accl, config);
+        return new YoloUltralyticsPose(accl, config, task);
     } else if (task == "yolov9_det") {
         return new YoloUltralyticsDetect(accl, config);
     } else if (task == "yolov10_det") {
@@ -28,7 +28,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
     } else if (task == "yolov11_seg") {
         return new YoloUltralyticsSegment(accl, config, task);
     } else if (task == "yolov11_pose") {
-        return new YoloUltralyticsPose(accl, config);
+        return new YoloUltralyticsPose(accl, config, task);
     }
 
     throw std::runtime_error("Unsupported task: " + task);
