@@ -14,17 +14,17 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
     if (task == "yolov7_det") {
         return new Yolo7Detect(accl, config);
     } else if (task == "yolov8_det") {
-        return new YoloUltralyticsDetect(accl, config);
+        return new YoloUltralyticsDetect(accl, config, task);
     } else if (task == "yolov8_seg") {
         return new YoloUltralyticsSegment(accl, config, task);
     } else if (task == "yolov8_pose") {
         return new YoloUltralyticsPose(accl, config, task);
     } else if (task == "yolov9_det") {
-        return new YoloUltralyticsDetect(accl, config);
+        return new YoloUltralyticsDetect(accl, config, task);
     } else if (task == "yolov10_det") {
         return new Yolo10Detect(accl, config);
     } else if (task == "yolov11_det") {
-        return new YoloUltralyticsDetect(accl, config);
+        return new YoloUltralyticsDetect(accl, config, task);
     } else if (task == "yolov11_seg") {
         return new YoloUltralyticsSegment(accl, config, task);
     } else if (task == "yolov11_pose") {

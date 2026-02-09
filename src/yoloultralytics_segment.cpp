@@ -2,7 +2,6 @@
 
 #include "config_finalizer.h"
 #include "utils.h"
-#include "memx/accl/MxAccl.h"
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <algorithm>
