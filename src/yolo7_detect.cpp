@@ -25,20 +25,6 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_c
         model_type = "yolo7-det";
     }
 
-    // Get output shapes from model
-    auto model_info = accl->get_model_info(0);
-    output_shapes_.clear();
-    for (size_t i = 0; i < model_info.out_featuremap_shapes.size(); ++i) {
-        std::vector<int64_t> shape_vec = model_info.out_featuremap_shapes[i].chlast_shape();
-        if (shape_vec.size() >= 3) {
-            output_shapes_.push_back(std::make_tuple(
-                static_cast<int>(shape_vec[0]),
-                static_cast<int>(shape_vec[1]),
-                static_cast<int>(shape_vec[2])
-            ));
-        }
-    }
-
     // Load port configuration from YAML
     std::string source_file = __FILE__;
     std::string config_path = source_file.substr(0, source_file.find("/src/")) + "/config/model-config.yaml";
@@ -49,10 +35,6 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_c
         }
 
         YAML::Node config = YAML::LoadFile(config_path);
-        
-        if (!config[model_type]) {
-            throw std::runtime_error("The task for this model is '" + task + "'. Please ensure you selected the correct task.");
-        }
         
         YAML::Node model_config = config[model_type];
         
@@ -109,21 +91,6 @@ void Yolo7Detect::draw(cv::Mat& image, const Result& result) {
 }
 
 void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result) {
-    // Print raw logits for debugging
-    for (size_t i = 0; i < outputs.size() && i < output_shapes_.size(); ++i) {
-        auto [channels, height, width] = output_shapes_[i];
-        float* out_data = outputs[i];
-        std::cout << "Port " << i << " [" << channels << "," << height << "," << width << "]: ";
-        std::cout << "values = [";
-        for (int j = 0; j < std::min(5, channels * height * width); ++j) {
-            std::cout << out_data[j];
-            if (j < std::min(4, channels * height * width - 1)) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]" << std::endl;
-    }
-
     // std::cout << "YOLO7 Post Process";
     // Candidate Gathering
     std::vector<BBox> all_boxes;

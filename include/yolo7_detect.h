@@ -36,7 +36,6 @@ namespace MX {
             // misc
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
-            std::vector<std::tuple<int, int, int>> output_shapes_;
         };
 
     }

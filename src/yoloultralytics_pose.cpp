@@ -37,10 +37,6 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
 
         YAML::Node config = YAML::LoadFile(config_path);
         
-        if (!config[model_type]) {
-            throw std::runtime_error("The task for this model is '" + task + "'. Please ensure you selected the correct task.");
-        }
-        
         YAML::Node model_config = config[model_type];
         
         // Load layer configurations
