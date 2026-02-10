@@ -17,7 +17,15 @@ endif()
 file(GLOB local_src src/*.cpp)
 
 find_package(OpenCV REQUIRED)
-find_package(yaml-cpp REQUIRED)
+
+# Use FetchContent to get yaml-cpp instead of system package
+include(FetchContent)
+FetchContent_Declare(
+    yaml-cpp
+    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_TAG        0.8.0  # Use a stable release tag
+)
+FetchContent_MakeAvailable(yaml-cpp)
 
 add_library(mxprepost SHARED ${local_src})
 
@@ -47,7 +55,7 @@ target_include_directories(mxprepost PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/MX_API/mx_accl/include
 )
 
-target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl yaml-cpp::yaml-cpp)
+target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl yaml-cpp)
 
 # Set RPATH for the build tree so the executable can find 
 # the 'mx_accl' shared library without manual LD_LIBRARY_PATH exports.
