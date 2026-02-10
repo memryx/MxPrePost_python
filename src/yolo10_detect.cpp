@@ -38,12 +38,6 @@ Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user
             .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
             .stride = 32,
     };
-
-    std::vector<MX::Prepost::Util::Grid> grids = {
-            {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
-            {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
-            {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
-    };
 }
 
 cv::Mat Yolo10Detect::preprocess(const cv::Mat& image) {

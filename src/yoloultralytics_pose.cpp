@@ -51,12 +51,6 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
             }
         }
     }
-
-    std::vector<MX::Prepost::Util::Grid> grids = {
-            {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
-            {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
-            {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
-    };
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
@@ -187,7 +181,8 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
     }
 
     // apply NMS
-    std::vector<int> keep_indices = MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
+    std::vector<int> keep_indices =
+            MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());
