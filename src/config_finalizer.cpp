@@ -76,7 +76,7 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
         }
     } else {
         for (int cls : user.valid_classes) {
-            if (cls >= 0 && cls < final.class_labels.size()) {
+            if (cls < 0 || cls >= final.class_labels.size()) {
                 throw std::invalid_argument("valid_classes contains invalid class ID: " +
                                             std::to_string(cls));
             }
