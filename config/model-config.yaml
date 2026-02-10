@@ -109,8 +109,8 @@ yolo11-pose:
   port_order: [coord, keypt, conf, coord, keypt, conf, coord, keypt, conf]
 
 ############  Detection Models  ############
-yolov8n-det:
-    description: "YOLOv8n Detection Model Port Configuration"
+yolov8-det:
+    description: "YOLOv8 Detection Model Port Configuration"
     layers:
       layer_0:  # 80x80 grid, stride 8
         coord_port: 0
@@ -129,8 +129,8 @@ yolov8n-det:
         conf_shape: [80, 20, 20]
     port_order: [coord, conf, coord, conf, coord, conf]
 
-yolov9t-det:
-  description: "YOLOv9t Detection Model Port Configuration"
+yolov9-det:
+  description: "YOLOv9 Detection Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
       coord_port: 0
@@ -149,8 +149,8 @@ yolov9t-det:
       conf_shape: [80, 20, 20]
   port_order: [coord, conf, coord, conf, coord, conf]
 
-yolo11n-det:
-  description: "YOLO11n Detection Model Port Configuration"
+yolo11-det:
+  description: "YOLO11 Detection Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
       coord_port: 0

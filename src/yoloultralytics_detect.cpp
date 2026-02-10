@@ -22,11 +22,11 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
     // Determine model type from task string
     std::string model_type = task;
     if (task == "yolov8_det") {
-        model_type = "yolov8n-det";
+        model_type = "yolov8-det";
     } else if (task == "yolov9_det") {
-        model_type = "yolov9t-det";
+        model_type = "yolov9-det";
     } else if (task == "yolov11_det") {
-        model_type = "yolo11n-det";
+        model_type = "yolo11-det";
     }
 
     // Load port configuration from YAML
@@ -41,7 +41,7 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
         YAML::Node config = YAML::LoadFile(config_path);
         
         if (!config[model_type]) {
-            throw std::runtime_error("Model type '" + model_type + "' not found in config file");
+            throw std::runtime_error("The task for this model is '" + task + "'. Please ensure you selected the correct task.");
         }
         
         YAML::Node model_config = config[model_type];
@@ -66,33 +66,16 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
             };
         }
         
-    } catch (const std::exception& e) {
-        std::cerr << "Warning: Failed to load YAML config from " << config_path 
-                  << ": " << e.what() << std::endl;
-        std::cerr << "Using default yolov8-det configuration." << std::endl;
-        
-        // Fallback to default yolov8-det ports
-        yolo_post_layers_[0] = {
-            .coord_port = 0,
-            .conf_port = 1,
-            .width = static_cast<size_t>(cfg_.model_w / 8),
-            .height = static_cast<size_t>(cfg_.model_h / 8),
-            .stride = 8
-        };
-        yolo_post_layers_[1] = {
-            .coord_port = 2,
-            .conf_port = 3,
-            .width = static_cast<size_t>(cfg_.model_w / 16),
-            .height = static_cast<size_t>(cfg_.model_h / 16),
-            .stride = 16
-        };
-        yolo_post_layers_[2] = {
-            .coord_port = 4,
-            .conf_port = 5,
-            .width = static_cast<size_t>(cfg_.model_w / 32),
-            .height = static_cast<size_t>(cfg_.model_h / 32),
-            .stride = 32
-        };
+    } catch (const std::runtime_error& e) {
+        throw std::runtime_error(
+            std::string("Error: ") + e.what() + 
+            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
+        );
+    } catch (const YAML::Exception& e) {
+        throw std::runtime_error(
+            std::string("YAML parsing error: ") + e.what() + 
+            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
+        );
     }
 
     std::vector<MX::Prepost::Util::Grid> grids = {
