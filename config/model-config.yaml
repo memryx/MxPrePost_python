@@ -188,3 +188,23 @@ yolo10-det:
       conf_port: 5
       conf_shape: [80, 20, 20]
   port_order: [coord, conf, coord, conf, coord, conf]
+
+yolo7-det:
+  description: "YOLOv7 Detection Model Port Configuration"
+  layers:
+    layer_0:  # 80x80 grid, stride 8
+      coord_port: 0
+      coord_shape: [255, 80, 80]  
+      conf_port: 0
+      conf_shape: [255, 80, 80]   
+    layer_1:  # 40x40 grid, stride 16
+      coord_port: 1
+      coord_shape: [255, 40, 40]
+      conf_port: 1
+      conf_shape: [255, 40, 40]
+    layer_2:  # 20x20 grid, stride 32
+      coord_port: 2
+      coord_shape: [255, 20, 20]
+      conf_port: 2
+      conf_shape: [255, 20, 20]
+  port_order: [coord, conf, coord, conf, coord, conf]  

@@ -3,11 +3,15 @@
 
 #include "config_finalizer.h"
 #include "utils.h"
+#include "memx/accl/MxAccl.h"
+#include <yaml-cpp/yaml.h>
+#include <fstream>
+#include <algorithm>
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_cfg) {
+Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_cfg, const std::string& task) {
 
     // init settings from config
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
@@ -15,27 +19,76 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_c
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // init post-process layer params
-    yolo_post_layers_[0] = {
-            .out_port = 0,
-            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
-            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
-            .stride = 8,
-    };
+    // Determine model type from task string
+    std::string model_type = "yolo7-det";
+    if (task == "yolov7_det") {
+        model_type = "yolo7-det";
+    }
 
-    yolo_post_layers_[1] = {
-            .out_port = 1,
-            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
-            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
-            .stride = 16,
-    };
+    // Get output shapes from model
+    auto model_info = accl->get_model_info(0);
+    output_shapes_.clear();
+    for (size_t i = 0; i < model_info.out_featuremap_shapes.size(); ++i) {
+        std::vector<int64_t> shape_vec = model_info.out_featuremap_shapes[i].chlast_shape();
+        if (shape_vec.size() >= 3) {
+            output_shapes_.push_back(std::make_tuple(
+                static_cast<int>(shape_vec[0]),
+                static_cast<int>(shape_vec[1]),
+                static_cast<int>(shape_vec[2])
+            ));
+        }
+    }
 
-    yolo_post_layers_[2] = {
-            .out_port = 2,
-            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
-            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
-            .stride = 32,
-    };
+    // Load port configuration from YAML
+    std::string source_file = __FILE__;
+    std::string config_path = source_file.substr(0, source_file.find("/src/")) + "/config/model-config.yaml";
+    
+    try {
+        if (!std::ifstream(config_path).good()) {
+            throw std::runtime_error("Config file not found at " + config_path);
+        }
+
+        YAML::Node config = YAML::LoadFile(config_path);
+        
+        if (!config[model_type]) {
+            throw std::runtime_error("The task for this model is '" + task + "'. Please ensure you selected the correct task.");
+        }
+        
+        YAML::Node model_config = config[model_type];
+        
+        // Load layer configurations
+        for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
+            std::string layer_key = "layer_" + std::to_string(layer_idx);
+            YAML::Node layer = model_config["layers"][layer_key];
+            
+            if (!layer) {
+                throw std::runtime_error("Layer " + layer_key + " not found in config");
+            }
+            
+            int stride = (layer_idx == 0) ? 8 : (layer_idx == 1) ? 16 : 32;
+            
+            // For YOLOv7, coord_port and conf_port are the same (combined tensor)
+            uint8_t port = layer["coord_port"].as<uint8_t>();
+            
+            yolo_post_layers_[layer_idx] = {
+                .out_port = port,
+                .width = static_cast<size_t>(cfg_.model_w / stride),
+                .height = static_cast<size_t>(cfg_.model_h / stride),
+                .stride = static_cast<size_t>(stride)
+            };
+        }
+        
+    } catch (const std::runtime_error& e) {
+        throw std::runtime_error(
+            std::string("Error: ") + e.what() + 
+            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
+        );
+    } catch (const YAML::Exception& e) {
+        throw std::runtime_error(
+            std::string("YAML parsing error: ") + e.what() + 
+            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
+        );
+    }
 
     std::vector<MX::Prepost::Util::Grid> grids = {
             {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
@@ -56,6 +109,21 @@ void Yolo7Detect::draw(cv::Mat& image, const Result& result) {
 }
 
 void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result) {
+    // Print raw logits for debugging
+    for (size_t i = 0; i < outputs.size() && i < output_shapes_.size(); ++i) {
+        auto [channels, height, width] = output_shapes_[i];
+        float* out_data = outputs[i];
+        std::cout << "Port " << i << " [" << channels << "," << height << "," << width << "]: ";
+        std::cout << "values = [";
+        for (int j = 0; j < std::min(5, channels * height * width); ++j) {
+            std::cout << out_data[j];
+            if (j < std::min(4, channels * height * width - 1)) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "]" << std::endl;
+    }
+
     // std::cout << "YOLO7 Post Process";
     // Candidate Gathering
     std::vector<BBox> all_boxes;

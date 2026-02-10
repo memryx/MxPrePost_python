@@ -12,7 +12,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
                              const std::string& task,
                              const YoloUserConfig& config) {
     if (task == "yolov7_det") {
-        return new Yolo7Detect(accl, config);
+        return new Yolo7Detect(accl, config, task);
     } else if (task == "yolov8_det") {
         return new YoloUltralyticsDetect(accl, config, task);
     } else if (task == "yolov8_seg") {

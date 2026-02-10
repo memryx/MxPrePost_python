@@ -12,7 +12,7 @@ namespace MX {
         class Yolo7Detect : public MX::Runtime::MxPrepost {
 
           public:
-            Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& config);
+            Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& config, const std::string& task = "");
 
             cv::Mat preprocess(const cv::Mat& image) override;
             void postprocess(const std::vector<float*>& outputs, Result& result) override;
@@ -36,6 +36,7 @@ namespace MX {
             // misc
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
+            std::vector<std::tuple<int, int, int>> output_shapes_;
         };
 
     }
