@@ -9,7 +9,7 @@ from threading import Thread
 from collections import defaultdict
 import sys
 import mxprepost
-import mxapi
+from memryx import mxapi
 
 video_stream_1 = "/home/mixtile/memryx/media/people_1.mp4"
 video_stream_2 = "/home/mixtile/memryx/media/dataset_2.mp4"

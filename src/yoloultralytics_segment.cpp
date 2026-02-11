@@ -116,7 +116,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             float best_score;
             int best_label =
                     MX::Prepost::Util::get_best_label(best_score,
-                                                      conf_base + i * cfg_.valid_classes.size(),
+                                                      conf_base + i * cfg_.class_labels.size(),
                                                       cfg_.valid_classes,
                                                       smgr_->inv_conf_thres);
 
@@ -156,7 +156,8 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     }
 
     // apply NMS
-    std::vector<int> keep_indices = MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
+    std::vector<int> keep_indices =
+            MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
 
     // early exit
     int num_keep = static_cast<int>(keep_indices.size());

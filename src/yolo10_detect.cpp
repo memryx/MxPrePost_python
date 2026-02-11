@@ -104,7 +104,7 @@ void Yolo10Detect::postprocess(const std::vector<float*>& outputs, Result& resul
             float best_score;
             int best_label =
                     MX::Prepost::Util::get_best_label(best_score,
-                                                      conf_base + i * cfg_.valid_classes.size(),
+                                                      conf_base + i * cfg_.class_labels.size(),
                                                       cfg_.valid_classes,
                                                       smgr_->inv_conf_thres);
 
