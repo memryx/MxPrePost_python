@@ -2,6 +2,7 @@
 
 #include "config_finalizer.h"
 #include "utils.h"
+#include <cmath>
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
@@ -176,11 +177,22 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(binary_mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        for (const auto& contour : contours) {
-            // A valid polygon needs at least 3 points
-            if (contour.size() < 3)
+        // Find the largest contour by area (main object region)
+        // Concatenating disconnected contours creates invalid polygons that cause glitchy masks
+        double max_area = 0.0;
+        int largest_contour_idx = -1;
+        for (size_t idx = 0; idx < contours.size(); ++idx) {
+            if (contours[idx].size() < 3)
                 continue;
+            double area = cv::contourArea(contours[idx]);
+            if (area > max_area) {
+                max_area = area;
+                largest_contour_idx = static_cast<int>(idx);
+            }
+        }
 
+        if (largest_contour_idx >= 0) {
+            const auto& contour = contours[largest_contour_idx];
             Mask mask_struct;
             mask_struct.cls_id = box.cls_id;
             mask_struct.xys.reserve(contour.size());
@@ -189,7 +201,9 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             // Points 'p' are relative to the BBox crop.
             // Add the BBox top-left offset to get global coordinates.
             for (const auto& p : contour) {
-                mask_struct.xys.push_back({p.x + box.x_min, p.y + box.y_min});
+                float global_x = p.x + box.x_min;
+                float global_y = p.y + box.y_min;
+                mask_struct.xys.push_back({global_x, global_y});
             }
 
             if (!mask_struct.xys.empty()) {
