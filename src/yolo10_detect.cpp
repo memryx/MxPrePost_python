@@ -2,13 +2,6 @@
 
 #include "config_finalizer.h"
 #include "utils.h"
-#include <yaml-cpp/yaml.h>
-#include <algorithm>
-
-// Forward declaration for embedded config
-namespace MX::Prepost::Config {
-    const std::string& getModelConfigYaml();
-}
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
@@ -21,55 +14,8 @@ Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // Determine model type from task string
-    std::string model_type = "yolo10-det";
-    if (task == "yolov10_det") {
-        model_type = "yolo10-det";
-    }
-
-    // Load port configuration from embedded YAML
-    try {
-        YAML::Node config = YAML::Load(MX::Prepost::Config::getModelConfigYaml());
-        
-        YAML::Node model_config = config[model_type];
-        
-        // Load layer configurations
-        for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
-            std::string layer_key = "layer_" + std::to_string(layer_idx);
-            YAML::Node layer = model_config["layers"][layer_key];
-            
-            if (!layer) {
-                throw std::runtime_error("Layer " + layer_key + " not found in config");
-            }
-            
-            int stride = (layer_idx == 0) ? 8 : (layer_idx == 1) ? 16 : 32;
-            
-            yolo_post_layers_[layer_idx] = {
-                .coord_port = layer["coord_port"].as<uint8_t>(),
-                .conf_port = layer["conf_port"].as<uint8_t>(),
-                .width = static_cast<size_t>(cfg_.model_w / stride),
-                .height = static_cast<size_t>(cfg_.model_h / stride),
-                .stride = static_cast<size_t>(stride)
-            };
-        }
-        
-    } catch (const std::runtime_error& e) {
-        throw std::runtime_error(
-            std::string("Error: ") + e.what() + 
-            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
-        );
-    } catch (const YAML::Exception& e) {
-        throw std::runtime_error(
-            std::string("YAML parsing error: ") + e.what() + 
-            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
-        );
-    }
-
-    std::vector<MX::Prepost::Util::Grid> grids = {
-            {yolo_post_layers_[0].width, yolo_post_layers_[0].height},
-            {yolo_post_layers_[1].width, yolo_post_layers_[1].height},
-            {yolo_post_layers_[2].width, yolo_post_layers_[2].height},
-    };
+    // Load layer configuration from embedded YAML
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
 }
 
 cv::Mat Yolo10Detect::preprocess(const cv::Mat& image) {

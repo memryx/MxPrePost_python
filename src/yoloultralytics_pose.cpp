@@ -2,13 +2,6 @@
 
 #include "config_finalizer.h"
 #include "utils.h"
-#include <yaml-cpp/yaml.h>
-#include <algorithm>
-
-// Forward declaration for embedded config
-namespace MX::Prepost::Config {
-    const std::string& getModelConfigYaml();
-}
 
 using namespace MX::Runtime;
 
@@ -22,54 +15,10 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // Determine model type from task string
-    std::string model_type = task;
-    if (task == "yolov11_pose") {
-        model_type = "yolo11-pose";
-    } else if (task == "yolov8_pose") {
-        model_type = "yolo8-pose";
-    }
+    // Load layer configuration from embedded YAML
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
 
-    // Load port configuration from embedded YAML
-    try {
-        YAML::Node config = YAML::Load(MX::Prepost::Config::getModelConfigYaml());
-        
-        YAML::Node model_config = config[model_type];
-        
-        // Load layer configurations
-        for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
-            std::string layer_key = "layer_" + std::to_string(layer_idx);
-            YAML::Node layer = model_config["layers"][layer_key];
-            
-            if (!layer) {
-                throw std::runtime_error("Layer " + layer_key + " not found in config");
-            }
-            
-            int stride = (layer_idx == 0) ? 8 : (layer_idx == 1) ? 16 : 32;
-            
-            yolo_post_layers_[layer_idx] = {
-                .coord_port = layer["coord_port"].as<uint8_t>(),
-                .conf_port = layer["conf_port"].as<uint8_t>(),
-                .keypt_port = layer["keypt_port"].as<uint8_t>(),
-                .width = static_cast<size_t>(cfg_.model_w / stride),
-                .height = static_cast<size_t>(cfg_.model_h / stride),
-                .stride = static_cast<size_t>(stride)
-            };
-        }
-        
-    } catch (const std::runtime_error& e) {
-        throw std::runtime_error(
-            std::string("Error: ") + e.what() + 
-            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
-        );
-    } catch (const YAML::Exception& e) {
-        throw std::runtime_error(
-            std::string("YAML parsing error: ") + e.what() + 
-            ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
-        );
-    }
-
-    // init anchors for each layer
+    // Process anchors for each layer (computed after getting yolo_post_layers_)
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         auto& layer = yolo_post_layers_[layer_id];
         for (size_t y = 0; y < layer.height; ++y) {
