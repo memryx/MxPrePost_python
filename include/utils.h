@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <string>
+#include <vector>
 
 namespace MX::Prepost::Util {
 
@@ -83,5 +85,34 @@ namespace MX::Prepost::Util {
         size_t width;
         size_t height;
     };
+
+    /** @brief Unified structure for YOLO layer parameters.
+     * All ports use -1 to indicate unused ports for a given model type.
+     */
+    struct LayerParams {
+        int coord_port = -1;
+        int conf_port = -1;
+        int keypt_port = -1;
+        int mask_coef_port = -1;
+        int mask_proto_port = -1;  // For segment models (same for all layers)
+        int port_out = -1;  // For YOLOv7
+        size_t width;
+        size_t height;
+        size_t stride;
+        std::vector<Point2f> anchors;  // Only pose models populate this
+    };
+
+    /**
+     * @brief Load YOLO layer configuration from embedded YAML config.
+     * @param task Task string (e.g., "yolov8_det", "yolov8_seg", "yolov8_pose")
+     * @param model_w Model input width
+     * @param model_h Model input height
+     * @return Vector of 3 LayerParams (one per layer)
+     */
+    std::vector<LayerParams> loadYoloLayerConfig(
+        const std::string& task,
+        int model_w,
+        int model_h
+    );
 
 }

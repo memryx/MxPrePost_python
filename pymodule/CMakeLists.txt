@@ -19,7 +19,31 @@ add_subdirectory(pybind11)  # Clone from https://github.com/pybind/pybind11
 # This will automatically name the output module "mxprepost.<python_abi_tag>.so"
 
 file(GLOB mxprepost_src ${CMAKE_CURRENT_SOURCE_DIR}/../src/*.cpp)
-pybind11_add_module(mxprepost bindings.cpp ${mxprepost_src})
+
+# Embed model-config.yaml into the binary
+set(MODEL_CONFIG_YAML "${CMAKE_CURRENT_SOURCE_DIR}/../config/model-config.yaml")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${MODEL_CONFIG_YAML}")
+
+file(READ "${MODEL_CONFIG_YAML}" MODEL_CONFIG_YAML_CONTENT)
+
+# Generate the .cpp file with embedded YAML (in the build dir; no subdirectory)
+set(MODEL_CONFIG_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/model_config_embedded.cpp")
+
+file(WRITE "${MODEL_CONFIG_EMBEDDED_CPP}"
+"// Auto-generated file - do not edit
+#include <string>
+
+namespace MX::Prepost::Config {
+    const std::string& getModelConfigYaml() {
+        static const std::string yaml_content = R\"mxprepost_yaml(
+${MODEL_CONFIG_YAML_CONTENT}
+)mxprepost_yaml\";
+        return yaml_content;
+    }
+}
+")
+
+pybind11_add_module(mxprepost bindings.cpp ${mxprepost_src} "${MODEL_CONFIG_EMBEDDED_CPP}")
 
 # find the path to the site-packages/numpy/core/include/ directory for the currently
 # active Python environment, and add that to the target_include_directories
@@ -31,6 +55,15 @@ execute_process(
 
 find_package(OpenCV REQUIRED)
 
+# Use FetchContent to get yaml-cpp instead of system package
+include(FetchContent)
+FetchContent_Declare(
+    yaml-cpp
+    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_TAG        0.8.0  # Use a stable release tag
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
 # Include directories
 target_include_directories(mxprepost PRIVATE
                            ${PYTHON_NUMPY_INCLUDE_DIR}
@@ -38,7 +71,7 @@ target_include_directories(mxprepost PRIVATE
                            ${CMAKE_CURRENT_SOURCE_DIR}/../include
                            ${CMAKE_CURRENT_SOURCE_DIR}/../extern/MX_API/mx_accl/include)
 
-target_link_libraries(mxprepost PRIVATE ${OpenCV_LIBS} mx_accl)
+target_link_libraries(mxprepost PRIVATE ${OpenCV_LIBS} mx_accl yaml-cpp)
 
 # Set RPATH for the build tree so the executable can find 
 # the 'mx_accl' shared library without manual LD_LIBRARY_PATH exports.

@@ -7,7 +7,8 @@ using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
 YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
-                                               const YoloUserConfig& user_cfg) {
+                                               const YoloUserConfig& user_cfg,
+                                               const std::string& task) {
 
     // init settings from config
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
@@ -15,27 +16,17 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // init post-process layer params
-    yolo_post_layers_[0] = {.coord_port = 0,
-                            .conf_port = 1,
-                            .mask_coef_port = 3,
-                            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
-                            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
-                            .stride = 8};
-
-    yolo_post_layers_[1] = {.coord_port = 4,
-                            .conf_port = 5,
-                            .mask_coef_port = 6,
-                            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
-                            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
-                            .stride = 16};
-
-    yolo_post_layers_[2] = {.coord_port = 7,
-                            .conf_port = 8,
-                            .mask_coef_port = 9,
-                            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
-                            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
-                            .stride = 32};
+    // Load layer configuration from embedded YAML
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
+    
+    // Extract mask_proto_port from first layer (it's the same for all layers in segment models)
+    if (yolo_post_layers_[0].mask_proto_port == -1) {
+        throw std::runtime_error(
+            "Mask proto port not found in config. The task for this model is '" + task + 
+            "'. Please ensure you selected the correct task."
+        );
+    }
+    mask_proto_port_ = static_cast<uint8_t>(yolo_post_layers_[0].mask_proto_port);
 }
 
 cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
@@ -50,7 +41,6 @@ void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
 }
 
 void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Result& result) {
-
     // Candidate Gathering
     std::vector<BBox> all_boxes;
     std::vector<float*> all_mask_coefs;  // mask coefficient base ptrs
@@ -137,7 +127,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     }
 
     // Prepare Proto Masks (160*160, N)
-    cv::Mat mask_proto(MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[2]);
+    cv::Mat mask_proto(MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[mask_proto_port_]);
     cv::Mat raw_masks = mask_proto * mask_coefs_mat;  // (160*160, 32) * (32, N) -> (160*160, N)
     cv::Mat mask_stack = raw_masks.reshape((int)num_keep, MASK_PROTO_H);
 

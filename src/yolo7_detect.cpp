@@ -3,11 +3,12 @@
 
 #include "config_finalizer.h"
 #include "utils.h"
+#include "memx/accl/MxAccl.h"
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_cfg) {
+Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_cfg, const std::string& task) {
 
     // init settings from config
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
@@ -15,27 +16,8 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_c
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // init post-process layer params
-    yolo_post_layers_[0] = {
-            .out_port = 0,
-            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
-            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
-            .stride = 8,
-    };
-
-    yolo_post_layers_[1] = {
-            .out_port = 1,
-            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
-            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
-            .stride = 16,
-    };
-
-    yolo_post_layers_[2] = {
-            .out_port = 2,
-            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
-            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
-            .stride = 32,
-    };
+    // Load layer configuration from embedded YAML
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
 }
 
 cv::Mat Yolo7Detect::preprocess(const cv::Mat& image) {
@@ -63,7 +45,7 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
 
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
-        float* out_base = outputs.at(layer.out_port);
+        float* out_base = outputs.at(layer.port_out);
 
         for (size_t i = 0; i < layer.height * layer.width; ++i) {
 

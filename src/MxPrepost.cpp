@@ -11,25 +11,27 @@ using namespace MX::Runtime;
 MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
                              const std::string& task,
                              const YoloUserConfig& config) {
-    if (task == "yolov7_det") {
-        return new Yolo7Detect(accl, config);
-    } else if (task == "yolov8_det") {
-        return new YoloUltralyticsDetect(accl, config);
-    } else if (task == "yolov8_seg") {
-        return new YoloUltralyticsSegment(accl, config);
-    } else if (task == "yolov8_pose") {
-        return new YoloUltralyticsPose(accl, config);
-    } else if (task == "yolov9_det") {
-        return new YoloUltralyticsDetect(accl, config);
-    } else if (task == "yolov10_det") {
-        return new Yolo10Detect(accl, config);
-    } else if (task == "yolov11_det") {
-        return new YoloUltralyticsDetect(accl, config);
-    } else if (task == "yolov11_seg") {
-        return new YoloUltralyticsSegment(accl, config);
-    } else if (task == "yolov11_pose") {
-        return new YoloUltralyticsPose(accl, config);
+    if (task == "yolov7-det") {
+        return new Yolo7Detect(accl, config, task);
+    } else if (task == "yolov8-det") {
+        return new YoloUltralyticsDetect(accl, config, task);
+    } else if (task == "yolov8-seg") {
+        return new YoloUltralyticsSegment(accl, config, task);
+    } else if (task == "yolov8-pose") {
+        return new YoloUltralyticsPose(accl, config, task);
+    } else if (task == "yolov9-det") {
+        return new YoloUltralyticsDetect(accl, config, task);
+    } else if (task == "yolov10-det") {
+        return new Yolo10Detect(accl, config, task);
+    } else if (task == "yolov11-det") {
+        return new YoloUltralyticsDetect(accl, config, task);
+    } else if (task == "yolov11-seg") {
+        return new YoloUltralyticsSegment(accl, config, task);
+    } else if (task == "yolov11-pose") {
+        return new YoloUltralyticsPose(accl, config, task);
     }
 
-    throw std::runtime_error("Unsupported task: " + task);
+    throw std::runtime_error(
+            "Unsupported task: " + task +
+            ". Ensure using this format yolov[n]-[det|seg|pose], where n is a yolo number version.");
 }

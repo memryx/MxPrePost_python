@@ -6,7 +6,8 @@
 using namespace MX::Runtime;
 
 YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
-                                         const YoloUserConfig& user_cfg) {
+                                         const YoloUserConfig& user_cfg,
+                                         const std::string& task) {
 
     // init settings from config
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
@@ -14,35 +15,10 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // init post-process layer params
-    yolo_post_layers_[0] = {
-            .coord_port = 0,
-            .conf_port = 1,
-            .keypt_port = 2,
-            .width = cfg_.model_w / 8,   // L0_HW, 640 / 8 = 80
-            .height = cfg_.model_h / 8,  // L0_HW, 640 / 8 = 80
-            .stride = 8,
-    };
+    // Load layer configuration from embedded YAML
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
 
-    yolo_post_layers_[1] = {
-            .coord_port = 3,
-            .conf_port = 4,
-            .keypt_port = 5,
-            .width = cfg_.model_w / 16,   // L1_HW, 640 / 16 = 40
-            .height = cfg_.model_h / 16,  // L1_HW, 640 / 16 = 40
-            .stride = 16,
-    };
-
-    yolo_post_layers_[2] = {
-            .coord_port = 6,
-            .conf_port = 7,
-            .keypt_port = 8,
-            .width = cfg_.model_w / 32,   // L2_HW, 640 / 32 = 20
-            .height = cfg_.model_h / 32,  // L2_HW, 640 / 32 = 20
-            .stride = 32,
-    };
-
-    // init anchors for each layer
+    // Process anchors for each layer (computed after getting yolo_post_layers_)
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
         auto& layer = yolo_post_layers_[layer_id];
         for (size_t y = 0; y < layer.height; ++y) {
@@ -101,8 +77,7 @@ void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {
-
+void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {    
     std::vector<BBox> all_boxes;
     std::vector<std::vector<Keypoint>> all_kpts;
     all_boxes.reserve(total_preds_);
