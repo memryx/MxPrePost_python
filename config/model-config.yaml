@@ -27,7 +27,7 @@ yolov8-seg:
     mask_proto_shape: [32, 160, 160]
   port_order: [coord, conf, mask_proto, mask_coef, coord, conf, mask_coef, coord, conf, mask_coef]
 
-yolo11-seg:
+yolov11-seg:
   description: "YOLO11 Segmentation Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
@@ -56,7 +56,7 @@ yolo11-seg:
   port_order: [coord, mask_proto, mask_coef, conf, coord, mask_coef, conf, coord, mask_coef, conf]
 
 ############  Pose Models  ############
-yolo8-pose:
+yolov8-pose:
   description: "YOLO8 Pose Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
@@ -82,7 +82,7 @@ yolo8-pose:
       keypt_shape: [51, 20, 20]
   port_order: [coord, conf, keypt, coord, conf, keypt, coord, conf, keypt]
 
-yolo11-pose:
+yolov11-pose:
   description: "YOLO11 Pose Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
@@ -149,7 +149,7 @@ yolov9-det:
       conf_shape: [80, 20, 20]
   port_order: [coord, conf, coord, conf, coord, conf]
 
-yolo11-det:
+yolov11-det:
   description: "YOLO11 Detection Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
@@ -169,7 +169,7 @@ yolo11-det:
       conf_shape: [80, 20, 20]
   port_order: [coord, conf, coord, conf, coord, conf]
 
-yolo10-det:
+yolov10-det:
   description: "YOLO10 Detection Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
@@ -189,7 +189,7 @@ yolo10-det:
       conf_shape: [80, 20, 20]
   port_order: [coord, conf, coord, conf, coord, conf]
 
-yolo7-det:
+yolov7-det:
   description: "YOLOv7 Detection Model Port Configuration"
   layers:
     layer_0:  # 80x80 grid, stride 8
