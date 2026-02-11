@@ -1,6 +1,8 @@
 
 #include "utils.h"
+
 #include <yaml-cpp/yaml.h>
+
 #include <stdexcept>
 #include <vector>
 
@@ -315,52 +317,22 @@ namespace MX::Prepost::Util {
         return {x1, y1, x2, y2};
     }
 
-    std::vector<LayerParams> loadYoloLayerConfig(
-        const std::string& task,
-        int model_w,
-        int model_h
-    ) {
-        // Map task string to model_type in YAML
-        std::string model_type;
-        if (task == "yolov8_det") {
-            model_type = "yolov8-det";
-        } else if (task == "yolov9_det") {
-            model_type = "yolov9-det";
-        } else if (task == "yolov11_det") {
-            model_type = "yolo11-det";
-        } else if (task == "yolov10_det") {
-            model_type = "yolo10-det";
-        } else if (task == "yolov7_det") {
-            model_type = "yolo7-det";
-        } else if (task == "yolov8_seg") {
-            model_type = "yolov8-seg";
-        } else if (task == "yolov11_seg") {
-            model_type = "yolo11-seg";
-        } else if (task == "yolov8_pose") {
-            model_type = "yolo8-pose";
-        } else if (task == "yolov11_pose") {
-            model_type = "yolo11-pose";
-        } else {
-            model_type = task;  // Fallback: use task as-is
-        }
-
+    std::vector<LayerParams>
+    loadYoloLayerConfig(const std::string& task, int model_w, int model_h) {
         // Load YAML config
         YAML::Node config;
         try {
             config = YAML::Load(MX::Prepost::Config::getModelConfigYaml());
         } catch (const YAML::Exception& e) {
-            throw std::runtime_error(
-                std::string("YAML parsing error: ") + e.what() + 
-                ". The task for this model is '" + task + "'. Please ensure you selected the correct task."
-            );
+            throw std::runtime_error(std::string("YAML parsing error: ") + e.what() +
+                                     ". The task for this model is '" + task +
+                                     "'. Please ensure you selected the correct task.");
         }
 
-        YAML::Node model_config = config[model_type];
+        YAML::Node model_config = config[task];
         if (!model_config) {
-            throw std::runtime_error(
-                "Model type '" + model_type + "' not found in config. " +
-                "The task for this model is '" + task + "'. Please ensure you selected the correct task."
-            );
+            throw std::runtime_error("The task '" + task + "' not found in config. " +
+                                     "'. Please ensure you selected the correct task.");
         }
 
         // Extract mask_proto_port for segment models (global, not per-layer)
@@ -371,22 +343,22 @@ namespace MX::Prepost::Util {
 
         // Load layer configurations
         std::vector<LayerParams> layers(3);
-        
+
         for (int layer_idx = 0; layer_idx < 3; ++layer_idx) {
             std::string layer_key = "layer_" + std::to_string(layer_idx);
             YAML::Node layer = model_config["layers"][layer_key];
-            
+
             if (!layer) {
                 throw std::runtime_error("Layer " + layer_key + " not found in config");
             }
 
             int stride = (layer_idx == 0) ? 8 : (layer_idx == 1) ? 16 : 32;
-            
+
             LayerParams& params = layers[layer_idx];
             params.width = static_cast<size_t>(model_w / stride);
             params.height = static_cast<size_t>(model_h / stride);
             params.stride = static_cast<size_t>(stride);
-            
+
             // Extract ports based on what's available in YAML (use -1 if not present)
             if (layer["coord_port"]) {
                 params.coord_port = layer["coord_port"].as<int>();
@@ -403,7 +375,7 @@ namespace MX::Prepost::Util {
             if (layer["port_out"]) {
                 params.port_out = layer["port_out"].as<int>();
             }
-            
+
             // mask_proto_port is global for segment models, set it for all layers
             if (mask_proto_port != -1) {
                 params.mask_proto_port = mask_proto_port;

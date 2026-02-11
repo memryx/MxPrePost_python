@@ -82,7 +82,7 @@ class BindMxPrepost {
                   float iou,
                   std::string classmap_path,
                   std::vector<int> valid_classes,
-                  bool fast_sigmoid, 
+                  bool fast_sigmoid,
                   bool class_agnostic = false) {
 
         YoloUserConfig config;
@@ -92,7 +92,6 @@ class BindMxPrepost {
         config.iou = iou;
         config.class_agnostic = class_agnostic;
         config.fast_sigmoid = fast_sigmoid;
-        
 
         // convert valid_classes vector to unordered_set
         config.valid_classes =
@@ -226,7 +225,7 @@ Create Prepost.
 
 Args:
   accl (MemryX accl): MemryX accelerator object. 
-  task (str): Task for post process. Pass yolov[8|9|10|11]_[det|seg|pose]
+  task (str): Task for post process. Pass yolov[8|9|10|11]-[det|seg|pose]
   ori_width (int): Original width of the image.
   ori_height (int): Original height of the image.
   conf (float): Confidence score. [Default is 0.3]
