@@ -5,8 +5,12 @@
 #include "utils.h"
 #include "memx/accl/MxAccl.h"
 #include <yaml-cpp/yaml.h>
-#include <fstream>
 #include <algorithm>
+
+// Forward declaration for embedded config
+namespace MX::Prepost::Config {
+    const std::string& getModelConfigYaml();
+}
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
@@ -25,16 +29,9 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_c
         model_type = "yolo7-det";
     }
 
-    // Load port configuration from YAML
-    std::string source_file = __FILE__;
-    std::string config_path = source_file.substr(0, source_file.find("/src/")) + "/config/model-config.yaml";
-    
+    // Load port configuration from embedded YAML
     try {
-        if (!std::ifstream(config_path).good()) {
-            throw std::runtime_error("Config file not found at " + config_path);
-        }
-
-        YAML::Node config = YAML::LoadFile(config_path);
+        YAML::Node config = YAML::Load(MX::Prepost::Config::getModelConfigYaml());
         
         YAML::Node model_config = config[model_type];
         

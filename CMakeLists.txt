@@ -27,7 +27,30 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(yaml-cpp)
 
-add_library(mxprepost SHARED ${local_src})
+# Embed model-config.yaml into the binary
+set(MODEL_CONFIG_YAML "${CMAKE_CURRENT_SOURCE_DIR}/config/model-config.yaml")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${MODEL_CONFIG_YAML}")
+
+file(READ "${MODEL_CONFIG_YAML}" MODEL_CONFIG_YAML_CONTENT)
+
+# Generate the .cpp file with embedded YAML (in the build dir; no subdirectory)
+set(MODEL_CONFIG_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/model_config_embedded.cpp")
+
+file(WRITE "${MODEL_CONFIG_EMBEDDED_CPP}"
+"// Auto-generated file - do not edit
+#include <string>
+
+namespace MX::Prepost::Config {
+    const std::string& getModelConfigYaml() {
+        static const std::string yaml_content = R\"mxprepost_yaml(
+${MODEL_CONFIG_YAML_CONTENT}
+)mxprepost_yaml\";
+        return yaml_content;
+    }
+}
+")
+
+add_library(mxprepost SHARED ${local_src} "${MODEL_CONFIG_EMBEDDED_CPP}")
 
 # --------------------------------------------------
 # Testing logic:

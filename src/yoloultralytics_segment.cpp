@@ -3,8 +3,12 @@
 #include "config_finalizer.h"
 #include "utils.h"
 #include <yaml-cpp/yaml.h>
-#include <fstream>
 #include <algorithm>
+
+// Forward declaration for embedded config
+namespace MX::Prepost::Config {
+    const std::string& getModelConfigYaml();
+}
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
@@ -28,11 +32,9 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
         model_type = "yolov8-seg";
     }
 
-    // Load port configuration from YAML
-    std::string source_file = __FILE__;
-    std::string config_path = source_file.substr(0, source_file.find("/src/")) + "/config/model-config.yaml";
+    // Load port configuration from embedded YAML
     try {
-        YAML::Node config = YAML::LoadFile(config_path);
+        YAML::Node config = YAML::Load(MX::Prepost::Config::getModelConfigYaml());
         
         YAML::Node model_config = config[model_type];
         
