@@ -31,5 +31,7 @@ MxPrepost* MxPrepost::create(MX::Runtime::MxAccl* accl,
         return new YoloUltralyticsPose(accl, config, task);
     }
 
-    throw std::runtime_error("Unsupported task: " + task);
+    throw std::runtime_error(
+            "Unsupported task: " + task +
+            ". Ensure using this format yolov[n]-[det|seg|pose], where n is a yolo number version.");
 }
