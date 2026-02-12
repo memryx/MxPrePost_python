@@ -29,13 +29,18 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
+    const int ori_w = image.cols;
+    const int ori_h = image.rows;
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     return MX::Prepost::Util::preprocess(image,
-                                         cfg_.letterbox_w,
-                                         cfg_.letterbox_h,
-                                         cfg_.pad_left,
-                                         cfg_.pad_top,
-                                         cfg_.pad_right,
-                                         cfg_.pad_bottom);
+                                         lb.letterbox_w,
+                                         lb.letterbox_h,
+                                         lb.pad_left,
+                                         lb.pad_top,
+                                         lb.pad_right,
+                                         lb.pad_bottom);
 }
 
 void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
@@ -44,7 +49,38 @@ void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Result& result) {
+void YoloUltralyticsSegment::postprocess(const std::vector<float*>&, Result&) {
+    throw std::runtime_error(
+            "postprocess(outputs, result) requires original image or (ori_w, ori_h). "
+            "Use postprocess(outputs, result, original_image) or postprocess(outputs, result, ori_w, ori_h).");
+}
+
+void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs,
+                                         Result& result,
+                                         const cv::Mat& original_image) {
+    if (original_image.empty()) {
+        throw std::invalid_argument("original_image must be non-empty for postprocess");
+    }
+    postprocess_impl(outputs, result, original_image.cols, original_image.rows);
+}
+
+void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs,
+                                         Result& result,
+                                         int ori_w,
+                                         int ori_h) {
+    if (ori_w <= 0 || ori_h <= 0) {
+        throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
+    }
+    postprocess_impl(outputs, result, ori_w, ori_h);
+}
+
+void YoloUltralyticsSegment::postprocess_impl(const std::vector<float*>& outputs,
+                                              Result& result,
+                                              int ori_w,
+                                              int ori_h) {
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     // Candidate Gathering
     std::vector<BBox> all_boxes;
     std::vector<float*> all_mask_coefs;  // mask coefficient base ptrs
@@ -86,10 +122,10 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
                                                                 cfg_.model_h);
 
             // convert to raw bbox coords
-            coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            coord[1] = (coord[1] - cfg_.pad_h) / cfg_.letterbox_ratio;
-            coord[2] = (coord[2] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            coord[3] = (coord[3] - cfg_.pad_h) / cfg_.letterbox_ratio;
+            coord[0] = (coord[0] - lb.pad_left) / lb.ratio;
+            coord[1] = (coord[1] - lb.pad_top) / lb.ratio;
+            coord[2] = (coord[2] - lb.pad_left) / lb.ratio;
+            coord[3] = (coord[3] - lb.pad_top) / lb.ratio;
 
             // store bbox
             all_boxes.emplace_back(coord[0],
@@ -145,10 +181,10 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
 
         // --- STEP 1: Get BBox in Model Space (undo the mapping to original image) ---
         // We need the box relative to the 640x640 letterbox to crop the 160x160 proto correctly
-        float m_x1 = box.x_min * cfg_.letterbox_ratio + cfg_.pad_w;
-        float m_y1 = box.y_min * cfg_.letterbox_ratio + cfg_.pad_h;
-        float m_x2 = box.x_max * cfg_.letterbox_ratio + cfg_.pad_w;
-        float m_y2 = box.y_max * cfg_.letterbox_ratio + cfg_.pad_h;
+        float m_x1 = box.x_min * lb.ratio + lb.pad_left;
+        float m_y1 = box.y_min * lb.ratio + lb.pad_top;
+        float m_x2 = box.x_max * lb.ratio + lb.pad_left;
+        float m_y2 = box.y_max * lb.ratio + lb.pad_top;
 
         // --- STEP 2: Scale BBox to Proto Space (160x160) ---
         int px1 = std::clamp((int)(m_x1 * model_to_proto_x), 0, MASK_PROTO_W - 1);

@@ -21,13 +21,18 @@ Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat Yolo10Detect::preprocess(const cv::Mat& image) {
+    const int ori_w = image.cols;
+    const int ori_h = image.rows;
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     return MX::Prepost::Util::preprocess(image,
-                                         cfg_.letterbox_w,
-                                         cfg_.letterbox_h,
-                                         cfg_.pad_left,
-                                         cfg_.pad_top,
-                                         cfg_.pad_right,
-                                         cfg_.pad_bottom);
+                                         lb.letterbox_w,
+                                         lb.letterbox_h,
+                                         lb.pad_left,
+                                         lb.pad_top,
+                                         lb.pad_right,
+                                         lb.pad_bottom);
 }
 
 void Yolo10Detect::draw(cv::Mat& image, const Result& result) {
@@ -36,8 +41,37 @@ void Yolo10Detect::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void Yolo10Detect::postprocess(const std::vector<float*>& outputs, Result& result) {
+void Yolo10Detect::postprocess(const std::vector<float*>&, Result&) {
+    throw std::runtime_error(
+            "postprocess(outputs, result) requires original image or (ori_w, ori_h). "
+            "Use postprocess(outputs, result, original_image) or postprocess(outputs, result, ori_w, ori_h).");
+}
 
+void Yolo10Detect::postprocess(const std::vector<float*>& outputs,
+                               Result& result,
+                               const cv::Mat& original_image) {
+    if (original_image.empty()) {
+        throw std::invalid_argument("original_image must be non-empty for postprocess");
+    }
+    postprocess_impl(outputs, result, original_image.cols, original_image.rows);
+}
+
+void Yolo10Detect::postprocess(const std::vector<float*>& outputs,
+                               Result& result,
+                               int ori_w,
+                               int ori_h) {
+    if (ori_w <= 0 || ori_h <= 0) {
+        throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
+    }
+    postprocess_impl(outputs, result, ori_w, ori_h);
+}
+
+void Yolo10Detect::postprocess_impl(const std::vector<float*>& outputs,
+                                    Result& result,
+                                    int ori_w,
+                                    int ori_h) {
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
     // Candidate Gathering
     std::vector<BBox> all_boxes;
     all_boxes.reserve(total_preds_);
@@ -74,10 +108,10 @@ void Yolo10Detect::postprocess(const std::vector<float*>& outputs, Result& resul
                                                                 cfg_.model_h);
 
             // convert to raw bbox coords
-            coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            coord[1] = (coord[1] - cfg_.pad_h) / cfg_.letterbox_ratio;
-            coord[2] = (coord[2] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            coord[3] = (coord[3] - cfg_.pad_h) / cfg_.letterbox_ratio;
+            coord[0] = (coord[0] - lb.pad_left) / lb.ratio;
+            coord[1] = (coord[1] - lb.pad_top) / lb.ratio;
+            coord[2] = (coord[2] - lb.pad_left) / lb.ratio;
+            coord[3] = (coord[3] - lb.pad_top) / lb.ratio;
 
             // store bbox
             all_boxes.emplace_back(coord[0],

@@ -76,8 +76,6 @@ class BindMxPrepost {
   public:
     BindMxPrepost(py::object pyaccl,
                   const std::string& task,
-                  int ori_width,
-                  int ori_height,
                   float conf,
                   float iou,
                   std::string classmap_path,
@@ -86,8 +84,8 @@ class BindMxPrepost {
                   bool class_agnostic = false) {
 
         YoloUserConfig config;
-        config.ori_width = ori_width;
-        config.ori_height = ori_height;
+        // config.ori_width = ori_width;
+        // config.ori_height = ori_height;
         config.conf = conf;
         config.iou = iou;
         config.class_agnostic = class_agnostic;
@@ -151,12 +149,60 @@ class BindMxPrepost {
             ofmap_ptrs_[i] = ptr;
         }
 
-        // call postrocess
+        // Force user to provide original image or original shape
+        throw std::runtime_error(
+                "MxPrepost.postprocess(ofmaps) now requires original image or (ori_w, ori_h).\n"
+                "Use:\n"
+                "  postprocess(ofmaps, original_image)\n"
+                "or\n"
+                "  postprocess(ofmaps, ori_w, ori_h)");
+    }
+
+    // NEW overload: postprocess(ofmaps, original_image)
+    MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps,
+                                    const py::array& original_image) {
+
+        // init ofmap ptrs
+        if (ofmap_ptrs_.empty()) {
+            ofmap_ptrs_.resize(ofmaps.size());
+        }
+
+        // assign ofmap ptrs
+        for (int i = 0; i < static_cast<int>(ofmaps.size()); ++i) {
+            py::buffer_info info = ofmaps[i].request();
+            float* ptr = (float*)info.ptr;
+            ofmap_ptrs_[i] = ptr;
+        }
+
+        // convert numpy to cv::Mat (original image)
+        cv::Mat img = numpy_to_mat(original_image);
+
+        // call postprocess
         MX::Runtime::Result result;
-        prepost_->postprocess(ofmap_ptrs_, result);
+        prepost_->postprocess(ofmap_ptrs_, result, img);  // <-- requires C++ overload
         return result;
     }
 
+    // NEW overload: postprocess(ofmaps, ori_w, ori_h)
+    MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps, int ori_w, int ori_h) {
+
+        // init ofmap ptrs
+        if (ofmap_ptrs_.empty()) {
+            ofmap_ptrs_.resize(ofmaps.size());
+        }
+
+        // assign ofmap ptrs
+        for (int i = 0; i < static_cast<int>(ofmaps.size()); ++i) {
+            py::buffer_info info = ofmaps[i].request();
+            float* ptr = (float*)info.ptr;
+            ofmap_ptrs_[i] = ptr;
+        }
+
+        // call postprocess
+        MX::Runtime::Result result;
+        prepost_->postprocess(ofmap_ptrs_, result, ori_w, ori_h);  // <-- requires C++ overload
+        return result;
+    }
     py::array draw(py::array& arr, const MX::Runtime::Result& result) {
         // convert numpy to cv::Mat
         cv::Mat img = numpy_to_mat(arr);
@@ -202,8 +248,6 @@ PYBIND11_MODULE(mxprepost, m) {
     py::class_<BindMxPrepost>(m, "MxPrepost")
             .def(py::init<py::object,
                           std::string,
-                          int,
-                          int,
                           float,
                           float,
                           std::string,
@@ -212,8 +256,6 @@ PYBIND11_MODULE(mxprepost, m) {
                           bool>(),
                  py::arg("accl"),
                  py::arg("task"),
-                 py::arg("ori_width"),
-                 py::arg("ori_height"),
                  py::arg("conf") = 0.3,
                  py::arg("iou") = 0.4,
                  py::arg("classmap_path") = "",
@@ -237,5 +279,19 @@ Args:
 )doc")
             .def("draw", &BindMxPrepost::draw)
             .def("preprocess", &BindMxPrepost::preprocess)
-            .def("postprocess", &BindMxPrepost::postprocess);
+            // postprocess overloads
+            .def("postprocess",
+                 py::overload_cast<const std::vector<py::array>&>(&BindMxPrepost::postprocess),
+                 py::arg("ofmaps"))
+            .def("postprocess",
+                 py::overload_cast<const std::vector<py::array>&, const py::array&>(
+                         &BindMxPrepost::postprocess),
+                 py::arg("ofmaps"),
+                 py::arg("original_image"))
+            .def("postprocess",
+                 py::overload_cast<const std::vector<py::array>&, int, int>(
+                         &BindMxPrepost::postprocess),
+                 py::arg("ofmaps"),
+                 py::arg("ori_w"),
+                 py::arg("ori_h"));
 }

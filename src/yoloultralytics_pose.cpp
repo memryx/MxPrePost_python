@@ -4,6 +4,7 @@
 #include "utils.h"
 
 using namespace MX::Runtime;
+using namespace MX::Prepost::Util;
 
 YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
                                          const YoloUserConfig& user_cfg,
@@ -30,13 +31,18 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
+    const int ori_w = image.cols;
+    const int ori_h = image.rows;
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     return MX::Prepost::Util::preprocess(image,
-                                         cfg_.letterbox_w,
-                                         cfg_.letterbox_h,
-                                         cfg_.pad_left,
-                                         cfg_.pad_top,
-                                         cfg_.pad_right,
-                                         cfg_.pad_bottom);
+                                         lb.letterbox_w,
+                                         lb.letterbox_h,
+                                         lb.pad_left,
+                                         lb.pad_top,
+                                         lb.pad_right,
+                                         lb.pad_bottom);
 }
 
 void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
@@ -82,7 +88,38 @@ void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {
+void YoloUltralyticsPose::postprocess(const std::vector<float*>&, Result&) {
+    throw std::runtime_error(
+            "postprocess(outputs, result) requires original image or (ori_w, ori_h). "
+            "Use postprocess(outputs, result, original_image) or postprocess(outputs, result, ori_w, ori_h).");
+}
+
+void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs,
+                                      Result& result,
+                                      const cv::Mat& original_image) {
+    if (original_image.empty()) {
+        throw std::invalid_argument("original_image must be non-empty for postprocess");
+    }
+    postprocess_impl(outputs, result, original_image.cols, original_image.rows);
+}
+
+void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs,
+                                      Result& result,
+                                      int ori_w,
+                                      int ori_h) {
+    if (ori_w <= 0 || ori_h <= 0) {
+        throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
+    }
+    postprocess_impl(outputs, result, ori_w, ori_h);
+}
+
+void YoloUltralyticsPose::postprocess_impl(const std::vector<float*>& outputs,
+                                           Result& result,
+                                           int ori_w,
+                                           int ori_h) {
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     std::vector<BBox> all_boxes;
     std::vector<std::vector<Keypoint>> all_kpts;
     all_boxes.reserve(total_preds_);
@@ -116,10 +153,10 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
                                                                 cfg_.model_h);
 
             // Convert BBox to original image scale
-            float x1 = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            float y1 = (coord[1] - cfg_.pad_h) / cfg_.letterbox_ratio;
-            float x2 = (coord[2] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            float y2 = (coord[3] - cfg_.pad_h) / cfg_.letterbox_ratio;
+            float x1 = (coord[0] - lb.pad_left) / lb.ratio;
+            float y1 = (coord[1] - lb.pad_top) / lb.ratio;
+            float x2 = (coord[2] - lb.pad_left) / lb.ratio;
+            float y2 = (coord[3] - lb.pad_top) / lb.ratio;
 
             all_boxes.emplace_back(x1, y1, x2, y2, score, 0, "person");
 
@@ -146,8 +183,8 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result
                     float kpt_y = (raw_y * 2.0f + (anchor.y - 0.5f)) * layer.stride;
 
                     // 4. Recovery from Letterbox (Scale to original image pixels)
-                    kpt_x = (kpt_x - cfg_.pad_w) / cfg_.letterbox_ratio;
-                    kpt_y = (kpt_y - cfg_.pad_h) / cfg_.letterbox_ratio;
+                    kpt_x = (kpt_x - lb.pad_left) / lb.ratio;
+                    kpt_y = (kpt_y - lb.pad_top) / lb.ratio;
 
                     float kpt_conf = smgr_->convert(kpt_conf_raw);
                     kpts_per_box.emplace_back(kpt_x, kpt_y, kpt_conf);

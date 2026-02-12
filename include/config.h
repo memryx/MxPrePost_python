@@ -155,10 +155,8 @@ namespace MX {
         };
 
         struct YoloUserConfig {
-            int ori_width = -1;   // [Required] Original image width
-            int ori_height = -1;  // [Required] Original image height
-            float conf = 0.3f;    // [Optional] Confidence threshold
-            float iou = 0.4f;     // [Optional] IOU threshold for NMS
+            float conf = 0.3f;  // [Optional] Confidence threshold
+            float iou = 0.4f;   // [Optional] IOU threshold for NMS
 
             // [Optional] Path to a .txt file containing custom class names (one per line).
             // Defaults to COCO dataset.
@@ -172,8 +170,6 @@ namespace MX {
         };
 
         struct YoloFinalConfig {
-            int ori_width;
-            int ori_height;
             float conf;
             float iou;
             std::vector<int> valid_classes;
@@ -182,16 +178,6 @@ namespace MX {
 
             // extra params for compared to YoloUserConfig
             std::vector<std::string> class_labels;
-            float letterbox_ratio;
-            int letterbox_w;
-            int letterbox_h;
-            int pad_left;
-            int pad_right;
-            int pad_top;
-            int pad_bottom;
-
-            int pad_w;
-            int pad_h;
 
             int model_w;
             int model_h;

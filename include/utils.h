@@ -69,6 +69,18 @@ namespace MX::Prepost::Util {
 
     void draw_bbox(cv::Mat& image, const BBox& bbox);
 
+    struct LetterboxParams {
+        float ratio = 1.f;
+        int letterbox_w = 0;
+        int letterbox_h = 0;
+        int pad_left = 0;
+        int pad_right = 0;
+        int pad_top = 0;
+        int pad_bottom = 0;
+    };
+
+    LetterboxParams compute_letterbox(int ori_w, int ori_h, int model_w, int model_h);
+
     cv::Mat preprocess(const cv::Mat& image,
                        int letterbox_w,
                        int letterbox_h,
