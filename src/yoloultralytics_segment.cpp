@@ -201,9 +201,7 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
             // Points 'p' are relative to the BBox crop.
             // Add the BBox top-left offset to get global coordinates.
             for (const auto& p : contour) {
-                float global_x = p.x + box.x_min;
-                float global_y = p.y + box.y_min;
-                mask_struct.xys.push_back({global_x, global_y});
+                mask_struct.xys.push_back({p.x + box.x_min, p.y + box.y_min});
             }
 
             if (!mask_struct.xys.empty()) {
