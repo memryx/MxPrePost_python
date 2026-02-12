@@ -30,8 +30,13 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat YoloUltralyticsPose::preprocess(const cv::Mat& image) {
-    return MX::Prepost::Util::preprocess(
-            image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
+    return MX::Prepost::Util::preprocess(image,
+                                         cfg_.letterbox_w,
+                                         cfg_.letterbox_h,
+                                         cfg_.pad_left,
+                                         cfg_.pad_top,
+                                         cfg_.pad_right,
+                                         cfg_.pad_bottom);
 }
 
 void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
@@ -77,7 +82,7 @@ void YoloUltralyticsPose::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {    
+void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs, Result& result) {
     std::vector<BBox> all_boxes;
     std::vector<std::vector<Keypoint>> all_kpts;
     all_boxes.reserve(total_preds_);

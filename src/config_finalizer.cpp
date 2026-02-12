@@ -96,11 +96,25 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
     final.letterbox_ratio = std::min((float) final.model_w / final.ori_width,
                                      (float) final.model_h / final.ori_height);
 
-    final.letterbox_w = final.ori_width * final.letterbox_ratio;
-    final.letterbox_h = final.ori_height * final.letterbox_ratio;
+    final.letterbox_w = (int)std::round(final.ori_width * final.letterbox_ratio);
+    final.letterbox_h = (int)std::round(final.ori_height * final.letterbox_ratio);
 
-    final.pad_w = (final.model_w - final.letterbox_w) / 2;
-    final.pad_h = (final.model_h - final.letterbox_h) / 2;
+    // Clamp to model dims
+    final.letterbox_w = std::min(final.letterbox_w, final.model_w);
+    final.letterbox_h = std::min(final.letterbox_h, final.model_h);
+
+    int dw = final.model_w - final.letterbox_w;
+    int dh = final.model_h - final.letterbox_h;
+
+    // Asymmetric padding (handles odd dw/dh)
+    final.pad_left = dw / 2;
+    final.pad_right = dw - final.pad_left;
+    final.pad_top = dh / 2;
+    final.pad_bottom = dh - final.pad_top;
+
+    // (Optional) Keep old symmetric fields for legacy code paths
+    final.pad_w = final.pad_left;
+    final.pad_h = final.pad_top;
 
     return final;
 }

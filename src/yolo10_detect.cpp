@@ -6,7 +6,9 @@
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_cfg, const std::string& task) {
+Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl,
+                           const YoloUserConfig& user_cfg,
+                           const std::string& task) {
 
     // init settings from config
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
@@ -19,8 +21,13 @@ Yolo10Detect::Yolo10Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user
 }
 
 cv::Mat Yolo10Detect::preprocess(const cv::Mat& image) {
-    return MX::Prepost::Util::preprocess(
-            image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
+    return MX::Prepost::Util::preprocess(image,
+                                         cfg_.letterbox_w,
+                                         cfg_.letterbox_h,
+                                         cfg_.pad_left,
+                                         cfg_.pad_top,
+                                         cfg_.pad_right,
+                                         cfg_.pad_bottom);
 }
 
 void Yolo10Detect::draw(cv::Mat& image, const Result& result) {

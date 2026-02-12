@@ -167,8 +167,8 @@ namespace MX {
             //  [optional] List of class IDs to return. All other detections will be ignored (e.g.,
             //  [0] for person only in COCO dataset).
             std::unordered_set<int> valid_classes;
-            bool class_agnostic = false; // [Optional] Use class agnostic or not
-            bool fast_sigmoid = false;  // [Optional] Use fast sigmoid or not
+            bool class_agnostic = false;  // [Optional] Use class agnostic or not
+            bool fast_sigmoid = false;    // [Optional] Use fast sigmoid or not
         };
 
         struct YoloFinalConfig {
@@ -185,6 +185,11 @@ namespace MX {
             float letterbox_ratio;
             int letterbox_w;
             int letterbox_h;
+            int pad_left;
+            int pad_right;
+            int pad_top;
+            int pad_bottom;
+
             int pad_w;
             int pad_h;
 

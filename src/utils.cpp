@@ -161,10 +161,14 @@ namespace MX::Prepost::Util {
                     cv::LINE_AA);
     }
 
-    cv::Mat
-    preprocess(const cv::Mat& image, int letterbox_w, int letterbox_h, int pad_w, int pad_h) {
+    cv::Mat preprocess(const cv::Mat& image,
+                       int letterbox_w,
+                       int letterbox_h,
+                       int pad_left,
+                       int pad_top,
+                       int pad_right,
+                       int pad_bottom) {
 
-        // Resize keeping aspect ratio
         cv::Mat resized;
         cv::resize(image, resized, cv::Size(letterbox_w, letterbox_h), 0, 0, cv::INTER_LINEAR);
 
@@ -172,16 +176,15 @@ namespace MX::Prepost::Util {
         cv::Mat padded;
         cv::copyMakeBorder(resized,
                            padded,
-                           pad_h,  // top,
-                           pad_h,  // bottom
-                           pad_w,  // left
-                           pad_w,  // right
+                           pad_top,
+                           pad_bottom,
+                           pad_left,
+                           pad_right,
                            cv::BORDER_CONSTANT,
                            cv::Scalar(0, 0, 0));
 
-        // Convert to float and normalize (0–1)
         padded.convertTo(padded, CV_32F, 1.0 / 255.0);
-        return padded;  // shape: (640, 640, 3), range [0,1]
+        return padded;
     }
 
     void draw_mask(cv::Mat& image, const Mask& mask, float alpha) {

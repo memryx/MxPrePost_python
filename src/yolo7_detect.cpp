@@ -2,13 +2,15 @@
 #include "yolo7_detect.h"
 
 #include "config_finalizer.h"
-#include "utils.h"
 #include "memx/accl/MxAccl.h"
+#include "utils.h"
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_cfg, const std::string& task) {
+Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl,
+                         const YoloUserConfig& user_cfg,
+                         const std::string& task) {
 
     // init settings from config
     cfg_ = ConfigFinalizer::finalize(accl, user_cfg);
@@ -21,8 +23,13 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl, const YoloUserConfig& user_c
 }
 
 cv::Mat Yolo7Detect::preprocess(const cv::Mat& image) {
-    return MX::Prepost::Util::preprocess(
-            image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
+    return MX::Prepost::Util::preprocess(image,
+                                         cfg_.letterbox_w,
+                                         cfg_.letterbox_h,
+                                         cfg_.pad_left,
+                                         cfg_.pad_top,
+                                         cfg_.pad_right,
+                                         cfg_.pad_bottom);
 }
 
 void Yolo7Detect::draw(cv::Mat& image, const Result& result) {

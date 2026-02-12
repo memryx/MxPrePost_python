@@ -64,12 +64,18 @@ namespace MX::Prepost::Util {
     // Non-maximum suppression (NMS)
     // - class_agnostic=false: boxes of different classes do not suppress each other (class-aware)
     // - class_agnostic=true: boxes suppress each other regardless of class (class-agnostic)
-    std::vector<int> nms(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic = false);
+    std::vector<int>
+    nms(const std::vector<BBox>& boxes, float iou_thres, bool class_agnostic = false);
 
     void draw_bbox(cv::Mat& image, const BBox& bbox);
 
-    cv::Mat
-    preprocess(const cv::Mat& image, int letterbox_w, int letterbox_h, int pad_w, int pad_h);
+    cv::Mat preprocess(const cv::Mat& image,
+                       int letterbox_w,
+                       int letterbox_h,
+                       int pad_left,
+                       int pad_top,
+                       int pad_right,
+                       int pad_bottom);
 
     void draw_mask(cv::Mat& image, const Mask& mask, float alpha = 0.3f);
 
@@ -95,7 +101,7 @@ namespace MX::Prepost::Util {
         int keypt_port = -1;
         int mask_coef_port = -1;
         int mask_proto_port = -1;  // For segment models (same for all layers)
-        int port_out = -1;  // For YOLOv7
+        int port_out = -1;         // For YOLOv7
         size_t width;
         size_t height;
         size_t stride;
@@ -109,10 +115,7 @@ namespace MX::Prepost::Util {
      * @param model_h Model input height
      * @return Vector of 3 LayerParams (one per layer)
      */
-    std::vector<LayerParams> loadYoloLayerConfig(
-        const std::string& task,
-        int model_w,
-        int model_h
-    );
+    std::vector<LayerParams>
+    loadYoloLayerConfig(const std::string& task, int model_w, int model_h);
 
 }

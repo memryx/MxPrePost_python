@@ -18,20 +18,24 @@ YoloUltralyticsSegment::YoloUltralyticsSegment(MX::Runtime::MxAccl* accl,
 
     // Load layer configuration from embedded YAML
     yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
-    
+
     // Extract mask_proto_port from first layer (it's the same for all layers in segment models)
     if (yolo_post_layers_[0].mask_proto_port == -1) {
         throw std::runtime_error(
-            "Mask proto port not found in config. The task for this model is '" + task + 
-            "'. Please ensure you selected the correct task."
-        );
+                "Mask proto port not found in config. The task for this model is '" + task +
+                "'. Please ensure you selected the correct task.");
     }
     mask_proto_port_ = static_cast<uint8_t>(yolo_post_layers_[0].mask_proto_port);
 }
 
 cv::Mat YoloUltralyticsSegment::preprocess(const cv::Mat& image) {
-    return MX::Prepost::Util::preprocess(
-            image, cfg_.letterbox_w, cfg_.letterbox_h, cfg_.pad_w, cfg_.pad_h);
+    return MX::Prepost::Util::preprocess(image,
+                                         cfg_.letterbox_w,
+                                         cfg_.letterbox_h,
+                                         cfg_.pad_left,
+                                         cfg_.pad_top,
+                                         cfg_.pad_right,
+                                         cfg_.pad_bottom);
 }
 
 void YoloUltralyticsSegment::draw(cv::Mat& image, const Result& result) {
@@ -127,7 +131,8 @@ void YoloUltralyticsSegment::postprocess(const std::vector<float*>& outputs, Res
     }
 
     // Prepare Proto Masks (160*160, N)
-    cv::Mat mask_proto(MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[mask_proto_port_]);
+    cv::Mat mask_proto(
+            MASK_PROTO_H * MASK_PROTO_W, MASK_FMAP_SIZE, CV_32F, (void*)outputs[mask_proto_port_]);
     cv::Mat raw_masks = mask_proto * mask_coefs_mat;  // (160*160, 32) * (32, N) -> (160*160, N)
     cv::Mat mask_stack = raw_masks.reshape((int)num_keep, MASK_PROTO_H);
 
