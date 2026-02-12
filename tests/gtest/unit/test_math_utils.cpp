@@ -6,6 +6,7 @@
 #include <array>
 #include <vector>
 
+using MX::Prepost::Util::compute_letterbox;
 using MX::Prepost::Util::dfl;
 using MX::Prepost::Util::draw_bbox;
 using MX::Prepost::Util::draw_mask;
@@ -924,4 +925,161 @@ TEST(DrawMask, PolygonAndBoundingBoxMatchInput) {
     EXPECT_EQ(expected_rect.y, 150);
     EXPECT_EQ(expected_rect.width, 201);
     EXPECT_EQ(expected_rect.height, 201);
+}
+
+/* ===================== compute_letterbox tests ===================== */
+
+TEST(ComputeLetterbox, ThrowsOnInvalidOriginalSize) {
+    EXPECT_THROW(compute_letterbox(0, 1080, 640, 640), std::invalid_argument);
+    EXPECT_THROW(compute_letterbox(-1, 1080, 640, 640), std::invalid_argument);
+    EXPECT_THROW(compute_letterbox(1920, 0, 640, 640), std::invalid_argument);
+    EXPECT_THROW(compute_letterbox(1920, -5, 640, 640), std::invalid_argument);
+}
+
+TEST(ComputeLetterbox, BasicFunctionality_1920x1080_to_640x640) {
+    // ori: 1920x1080 -> model: 640x640
+    // ratio = min(640/1920=0.3333, 640/1080=0.5926) = 0.3333
+    // letterbox = round(1920*0.3333)=640, round(1080*0.3333)=360
+    // padding: dw=0 => L/R=0, dh=280 => T/B=140/140
+    auto p = compute_letterbox(1920, 1080, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 640.0f / 1920.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 640);
+    EXPECT_EQ(p.letterbox_h, 360);
+    EXPECT_EQ(p.pad_left, 0);
+    EXPECT_EQ(p.pad_right, 0);
+    EXPECT_EQ(p.pad_top, 140);
+    EXPECT_EQ(p.pad_bottom, 140);
+
+    // Invariants
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+}
+
+TEST(ComputeLetterbox, SquareImageNoPadding_640x640_to_640x640) {
+    auto p = compute_letterbox(640, 640, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 1.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 640);
+    EXPECT_EQ(p.letterbox_h, 640);
+    EXPECT_EQ(p.pad_left, 0);
+    EXPECT_EQ(p.pad_right, 0);
+    EXPECT_EQ(p.pad_top, 0);
+    EXPECT_EQ(p.pad_bottom, 0);
+
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+}
+
+TEST(ComputeLetterbox, WideImageVerticalPadding_1920x480_to_640x640) {
+    // ori: 1920x480 -> ratio = min(640/1920=0.3333, 640/480=1.3333)=0.3333
+    // letterbox = 640 x 160
+    // padding: dh=480 => top/bottom 240/240
+    auto p = compute_letterbox(1920, 480, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 640.0f / 1920.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 640);
+    EXPECT_EQ(p.letterbox_h, 160);
+    EXPECT_EQ(p.pad_left, 0);
+    EXPECT_EQ(p.pad_right, 0);
+    EXPECT_EQ(p.pad_top, 240);
+    EXPECT_EQ(p.pad_bottom, 240);
+
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+}
+
+TEST(ComputeLetterbox, TallImageHorizontalPadding_480x1920_to_640x640) {
+    // ori: 480x1920 -> ratio = min(640/480=1.3333, 640/1920=0.3333)=0.3333
+    // letterbox = 160 x 640
+    // padding: dw=480 => left/right 240/240
+    auto p = compute_letterbox(480, 1920, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 640.0f / 1920.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 160);
+    EXPECT_EQ(p.letterbox_h, 640);
+    EXPECT_EQ(p.pad_left, 240);
+    EXPECT_EQ(p.pad_right, 240);
+    EXPECT_EQ(p.pad_top, 0);
+    EXPECT_EQ(p.pad_bottom, 0);
+
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+}
+
+TEST(ComputeLetterbox, VerySmallImageUpscales_64x64_to_640x640) {
+    // ratio = min(640/64=10, 640/64=10)=10
+    // letterbox=640x640, no padding
+    auto p = compute_letterbox(64, 64, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 10.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 640);
+    EXPECT_EQ(p.letterbox_h, 640);
+    EXPECT_EQ(p.pad_left, 0);
+    EXPECT_EQ(p.pad_right, 0);
+    EXPECT_EQ(p.pad_top, 0);
+    EXPECT_EQ(p.pad_bottom, 0);
+
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+}
+
+TEST(ComputeLetterbox, UnevenVerticalPadding_OddDhSplit) {
+    // This mirrors your "UnevenVerticalPadding" preprocess test idea:
+    // ori: 640x315 -> model: 640x640
+    // ratio = min(640/640=1, 640/315=2.0317)=1
+    // letterbox=640x315
+    // dh=325 -> top=162 bottom=163
+    auto p = compute_letterbox(640, 315, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 1.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 640);
+    EXPECT_EQ(p.letterbox_h, 315);
+
+    EXPECT_EQ(p.pad_left, 0);
+    EXPECT_EQ(p.pad_right, 0);
+    EXPECT_EQ(p.pad_top, 162);
+    EXPECT_EQ(p.pad_bottom, 163);
+
+    // Critical invariant: totals match exactly (avoids 639 bug)
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+}
+
+TEST(ComputeLetterbox, UnevenHorizontalPadding_OddDwSplit) {
+    // ori: 315x640 -> model: 640x640
+    // ratio = min(640/315=2.0317, 640/640=1)=1
+    // letterbox=315x640
+    // dw=325 -> left=162 right=163
+    auto p = compute_letterbox(315, 640, 640, 640);
+
+    EXPECT_NEAR(p.ratio, 1.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 315);
+    EXPECT_EQ(p.letterbox_h, 640);
+
+    EXPECT_EQ(p.pad_top, 0);
+    EXPECT_EQ(p.pad_bottom, 0);
+    EXPECT_EQ(p.pad_left, 162);
+    EXPECT_EQ(p.pad_right, 163);
+
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 640);
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 640);
+}
+
+TEST(ComputeLetterbox, NonSquareModel_1280x720_From_1920x1080) {
+    // ori: 1920x1080 (16:9) -> model: 1280x720 (16:9)
+    // ratio = min(1280/1920=0.6667, 720/1080=0.6667)=0.6667
+    // letterbox=1280x720, no padding
+    auto p = compute_letterbox(1920, 1080, 1280, 720);
+
+    EXPECT_NEAR(p.ratio, 1280.0f / 1920.0f, 1e-6f);
+    EXPECT_EQ(p.letterbox_w, 1280);
+    EXPECT_EQ(p.letterbox_h, 720);
+    EXPECT_EQ(p.pad_left, 0);
+    EXPECT_EQ(p.pad_right, 0);
+    EXPECT_EQ(p.pad_top, 0);
+    EXPECT_EQ(p.pad_bottom, 0);
+
+    EXPECT_EQ(p.letterbox_w + p.pad_left + p.pad_right, 1280);
+    EXPECT_EQ(p.letterbox_h + p.pad_top + p.pad_bottom, 720);
 }

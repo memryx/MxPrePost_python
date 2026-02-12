@@ -23,13 +23,18 @@ Yolo7Detect::Yolo7Detect(MX::Runtime::MxAccl* accl,
 }
 
 cv::Mat Yolo7Detect::preprocess(const cv::Mat& image) {
+    const int ori_w = image.cols;
+    const int ori_h = image.rows;
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     return MX::Prepost::Util::preprocess(image,
-                                         cfg_.letterbox_w,
-                                         cfg_.letterbox_h,
-                                         cfg_.pad_left,
-                                         cfg_.pad_top,
-                                         cfg_.pad_right,
-                                         cfg_.pad_bottom);
+                                         lb.letterbox_w,
+                                         lb.letterbox_h,
+                                         lb.pad_left,
+                                         lb.pad_top,
+                                         lb.pad_right,
+                                         lb.pad_bottom);
 }
 
 void Yolo7Detect::draw(cv::Mat& image, const Result& result) {
@@ -38,8 +43,38 @@ void Yolo7Detect::draw(cv::Mat& image, const Result& result) {
     }
 }
 
-void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result) {
-    // std::cout << "YOLO7 Post Process";
+void Yolo7Detect::postprocess(const std::vector<float*>&, Result&) {
+    throw std::runtime_error(
+            "postprocess(outputs, result) requires original image or (ori_w, ori_h). "
+            "Use postprocess(outputs, result, original_image) or postprocess(outputs, result, ori_w, ori_h).");
+}
+
+void Yolo7Detect::postprocess(const std::vector<float*>& outputs,
+                              Result& result,
+                              const cv::Mat& original_image) {
+    if (original_image.empty()) {
+        throw std::invalid_argument("original_image must be non-empty for postprocess");
+    }
+    postprocess_impl(outputs, result, original_image.cols, original_image.rows);
+}
+
+void Yolo7Detect::postprocess(const std::vector<float*>& outputs,
+                              Result& result,
+                              int ori_w,
+                              int ori_h) {
+    if (ori_w <= 0 || ori_h <= 0) {
+        throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
+    }
+    postprocess_impl(outputs, result, ori_w, ori_h);
+}
+
+void Yolo7Detect::postprocess_impl(const std::vector<float*>& outputs,
+                                   Result& result,
+                                   int ori_w,
+                                   int ori_h) {
+
+    const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
+
     // Candidate Gathering
     std::vector<BBox> all_boxes;
     all_boxes.reserve(total_preds_);
@@ -56,45 +91,24 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
 
         for (size_t i = 0; i < layer.height * layer.width; ++i) {
 
-            // Cell base points to 255 floats: [a0(85) | a1(85) | a2(85)]
             float* cell = out_base + i * per_cell;
 
-            // Pick the best anchor+class using RAW logits (no sigmoid unless needed)
             int best_label = -1;
-            float best_cls_logit = 0.0f;
-            float best_obj_logit = 0.0f;
             int best_anchor = -1;
             float best_score = 0.0f;
 
-            // We must consider objectness * class; to avoid sigmoids, we:
-            // - gate objectness using inv_conf_thres (logit of cfg_.conf) as a cheap early filter
-            // - select best class by logit (monotonic w.r.t sigmoid)
-            // - only convert (sigmoid) for the winning candidate (same style as Ultralytics code)
             for (int a = 0; a < 3; ++a) {
-                float* p = cell + a * per_anchor;  // Kperanchor
+                float* p = cell + a * per_anchor;
 
                 const float obj_logit = p[4];
 
-                // Early objectness gating in RAW space:
-                // Using inv_conf_thres is conservative and saves work;
-                // you can tune this if you expose a separate obj threshold.
-                // if (obj_logit < smgr_->inv_conf_thres)
-                //     continue;
-
-                // Best class among valid classes using RAW logits
-                // IMPORTANT: do NOT threshold classes with conf here
                 float cls_logit;
                 int label = MX::Prepost::Util::get_best_label(
-                        cls_logit,
-                        p + 5,               // class logits start
-                        cfg_.valid_classes,  // subset to consider
-                        -1e9f                // effectively "no threshold"
-                );
+                        cls_logit, p + 5, cfg_.valid_classes, -1e9f);
 
                 if (label == -1)
                     continue;
 
-                // Select purely by best YOLOv7 score
                 const float obj_prob = smgr_->convert(obj_logit);
                 const float cls_prob = smgr_->convert(cls_logit);
                 const float score = obj_prob * cls_prob;
@@ -102,23 +116,17 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
                 if (best_label == -1 || score > best_score) {
                     best_label = label;
                     best_anchor = a;
-                    best_obj_logit = obj_logit;
-                    best_cls_logit = cls_logit;
                     best_score = score;
                 }
             }
 
-            // no sufficient candidate in this cell
             if (best_label == -1)
                 continue;
 
-            // YOLOv7-equivalent final threshold
             if (best_score < cfg_.conf)
                 continue;
 
-            // NOTE: bbox decoding + storage happens after this point
-            // (not shown here because your snippet stops before decode)
-            // Decode bbox for the chosen anchor (YOLOv7 decode)
+            // Decode bbox for chosen anchor
             float* p = cell + best_anchor * per_anchor;
 
             const float tx = p[0];
@@ -135,8 +143,6 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
             const float row = static_cast<float>(i / layer.width);
             const float col = static_cast<float>(i % layer.width);
 
-            // TODO: there may be an issue with these hard coded anchors.
-            // anchors[layer_id][anchor_id] = (w,h) in model-input pixels
             static const float anchors_w[3][3] = {
                     {12.f, 19.f, 40.f},     // stride 8
                     {36.f, 76.f, 72.f},     // stride 16
@@ -148,11 +154,9 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
                     {110.f, 243.f, 401.f},
             };
 
-            // center
             const float cx = (sx * 2.0f - 0.5f + col) * stride;
             const float cy = (sy * 2.0f - 0.5f + row) * stride;
 
-            // size
             float bw = (sw * 2.0f);
             float bh = (sh * 2.0f);
             bw = bw * bw * anchors_w[layer_id][best_anchor];
@@ -161,11 +165,11 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
             std::array<float, 4> coord = {
                     cx - bw * 0.5f, cy - bh * 0.5f, cx + bw * 0.5f, cy + bh * 0.5f};
 
-            // convert to raw bbox coords (undo letterbox)
-            coord[0] = (coord[0] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            coord[1] = (coord[1] - cfg_.pad_h) / cfg_.letterbox_ratio;
-            coord[2] = (coord[2] - cfg_.pad_w) / cfg_.letterbox_ratio;
-            coord[3] = (coord[3] - cfg_.pad_h) / cfg_.letterbox_ratio;
+            // Undo letterbox using per-call padding/ratio (IMPORTANT: left for x, top for y)
+            coord[0] = (coord[0] - lb.pad_left) / lb.ratio;
+            coord[1] = (coord[1] - lb.pad_top) / lb.ratio;
+            coord[2] = (coord[2] - lb.pad_left) / lb.ratio;
+            coord[3] = (coord[3] - lb.pad_top) / lb.ratio;
 
             // store bbox
             all_boxes.emplace_back(coord[0],
@@ -181,9 +185,7 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs, Result& result
     std::vector<int> keep_indices =
             MX::Prepost::Util::nms(all_boxes, cfg_.iou, cfg_.class_agnostic);
 
-    // early exit
-    int num_keep = static_cast<int>(keep_indices.size());
-    if (num_keep == 0)
+    if (keep_indices.empty())
         return;
 
     result.boxes.reserve(keep_indices.size());

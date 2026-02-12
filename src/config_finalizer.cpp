@@ -42,18 +42,6 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
                 "use_model_shape of output must be false for Yolo models in MxPrepost");
     }
 
-    // Required parameters
-    if (user.ori_width <= 0) {
-        throw std::invalid_argument("ori_width must be provided for YoloUserConfig.");
-    }
-    final.ori_width = user.ori_width;
-
-    if (user.ori_height <= 0) {
-        throw std::invalid_argument("ori_height must be provided for YoloUserConfig.");
-    }
-    final.ori_height = user.ori_height;
-
-    // Optional parameters with defaults
     final.conf = user.conf;
     final.iou = user.iou;
     final.class_agnostic = user.class_agnostic;
@@ -84,37 +72,9 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
         }
     }
 
-    // Compute letterbox parameters
-    final.ori_width = user.ori_width;
-    final.ori_height = user.ori_height;
-
     // Get model input dimensions
     final.model_h = model_info.in_featuremap_shapes[0][0];
     final.model_w = model_info.in_featuremap_shapes[0][1];
-
-    // letterbox params
-    final.letterbox_ratio = std::min((float) final.model_w / final.ori_width,
-                                     (float) final.model_h / final.ori_height);
-
-    final.letterbox_w = (int)std::round(final.ori_width * final.letterbox_ratio);
-    final.letterbox_h = (int)std::round(final.ori_height * final.letterbox_ratio);
-
-    // Clamp to model dims
-    final.letterbox_w = std::min(final.letterbox_w, final.model_w);
-    final.letterbox_h = std::min(final.letterbox_h, final.model_h);
-
-    int dw = final.model_w - final.letterbox_w;
-    int dh = final.model_h - final.letterbox_h;
-
-    // Asymmetric padding (handles odd dw/dh)
-    final.pad_left = dw / 2;
-    final.pad_right = dw - final.pad_left;
-    final.pad_top = dh / 2;
-    final.pad_bottom = dh - final.pad_top;
-
-    // (Optional) Keep old symmetric fields for legacy code paths
-    final.pad_w = final.pad_left;
-    final.pad_h = final.pad_top;
 
     return final;
 }

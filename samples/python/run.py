@@ -11,10 +11,6 @@ import sys
 import mxprepost
 from memryx import mxapi
 
-video_stream_1 = "/home/mixtile/memryx/media/people_1.mp4"
-video_stream_2 = "/home/mixtile/memryx/media/dataset_2.mp4"
-dfp = "/home/mixtile/memryx/weights/YOLO_v8_small_640_640_3_tflite.dfp"
-
 FPS_LOG_INTERVAL = 30  # print out FPS every X frames
 
 
@@ -28,7 +24,7 @@ class YoloApp:
         Initialization function.
         """
 
-        self.show = not args.show
+        self.show = not args.no_show
 
         # Display control and stream initialization
         self.done = False
@@ -56,6 +52,9 @@ class YoloApp:
             vidcap = cv2.VideoCapture(video_path)
             self.streams.append(vidcap)
 
+        self.ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT))
+
         # Start display thread
         if self.show:
             self.display_thread = Thread(target=self.display)
@@ -69,7 +68,6 @@ class YoloApp:
 
         local = False
         accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
-        # accl.connect_post_model(args.post_model)
 
         for i in range(self.num_streams):
             accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
@@ -78,8 +76,6 @@ class YoloApp:
         self.prepost = mxprepost.MxPrepost(
             accl=accl,
             task=args.task,
-            ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH)),
-            ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT)),
             conf=0.3,
             iou=0.4,
             # classmap_path="classes.txt",
@@ -125,7 +121,7 @@ class YoloApp:
         """
 
         # call postprocess from mxprepost
-        result = self.prepost.postprocess(mxa_output)
+        result = self.prepost.postprocess(mxa_output, self.ori_width, self.ori_height)
         # raise "stop"
         # Queue detection results for display
         if self.show:
@@ -245,15 +241,15 @@ if __name__ == "__main__":
     )
 
     # Option to turn on display
-    parser.add_argument("--show", action="store_true", help="Display results")
+    parser.add_argument("--no-show", action="store_true", help="Disable display window")
 
     # DFP model argument
     parser.add_argument(
         "-d",
         "--dfp",
         type=str,
-        default=dfp,
-        help="Path to the compiled DFP file (default: 'models/tflite/YOLO_v8_small_640_640_3_tflite.dfp')",
+        required=True,
+        help="Path to the compiled DFP file",
     )
 
     parser.add_argument(

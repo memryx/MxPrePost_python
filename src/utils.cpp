@@ -161,6 +161,37 @@ namespace MX::Prepost::Util {
                     cv::LINE_AA);
     }
 
+    LetterboxParams compute_letterbox(int ori_w, int ori_h, int model_w, int model_h) {
+
+        // Required parameters
+        if (ori_w <= 0) {
+            throw std::invalid_argument("ori_width must be provided for YoloUserConfig.");
+        }
+        if (ori_h <= 0) {
+            throw std::invalid_argument("ori_height must be provided for YoloUserConfig.");
+        }
+
+        LetterboxParams p;
+
+        p.ratio = std::min((float)model_w / (float)ori_w, (float)model_h / (float)ori_h);
+
+        p.letterbox_w = (int)std::round(ori_w * p.ratio);
+        p.letterbox_h = (int)std::round(ori_h * p.ratio);
+
+        p.letterbox_w = std::min(p.letterbox_w, model_w);
+        p.letterbox_h = std::min(p.letterbox_h, model_h);
+
+        const int dw = model_w - p.letterbox_w;
+        const int dh = model_h - p.letterbox_h;
+
+        p.pad_left = dw / 2;
+        p.pad_right = dw - p.pad_left;
+        p.pad_top = dh / 2;
+        p.pad_bottom = dh - p.pad_top;
+
+        return p;
+    }
+
     cv::Mat preprocess(const cv::Mat& image,
                        int letterbox_w,
                        int letterbox_h,
