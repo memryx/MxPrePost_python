@@ -240,6 +240,7 @@ PYBIND11_MODULE(mxprepost, m) {
     py::class_<MX::Runtime::BBox>(m, "Box")
             .def(py::init<>())
             .def_readwrite("xywh", &BBox::xywh)
+            .def_readwrite("xyxy", &BBox::xyxy)
             .def_readwrite("conf", &BBox::conf)
             .def_readwrite("cls_id", &BBox::cls_id)
             .def_readwrite("cls_name", &BBox::cls_name);
