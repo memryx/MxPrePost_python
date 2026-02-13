@@ -158,7 +158,7 @@ namespace MX::Prepost::Util {
                     font_scale,
                     text_color,
                     font_thickness,
-                    cv::LINE_AA);
+                    cv::LINE_4);
     }
 
     LetterboxParams compute_letterbox(int ori_w, int ori_h, int model_w, int model_h) {
