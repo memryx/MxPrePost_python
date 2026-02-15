@@ -1,32 +1,39 @@
 cmake_minimum_required(VERSION 3.10)
-
-get_filename_component(app_name yolo NAME)
+project(yolo LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(OpenCV REQUIRED)
-find_package(Qt5 COMPONENTS Widgets Core Gui REQUIRED)
+find_package(Threads REQUIRED)
 
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-    message("Debug mode")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pipe -fPIC -O0 -g -fopenmp")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pipe -fPIC -O3 -fopenmp")
-endif()
+set(ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
-set (ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${ROOT_DIR}/include -L${ROOT_DIR}/build -Wl,-rpath,${ROOT_DIR}/build")
+file(GLOB local_src "*.cpp" "*.c")
 
-include_directories(${OpenCV_INCLUDE_DIRS}
-                    )
+# Get first cpp file and extract filename without extension
+list(GET local_src 0 MAIN_SRC)
+get_filename_component(APP_NAME ${MAIN_SRC} NAME_WE)
 
-file(GLOB local_src
-    "*.c"
-    "*.cpp"
-	)
+add_executable(${APP_NAME} ${local_src})
 
-add_executable(${app_name} ${local_src})
+target_include_directories(${APP_NAME} PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
+    ${ROOT_DIR}/include
+)
 
-target_link_libraries(${app_name}  mx_accl  ${OpenCV_LIBS} mxutils_gui mxprepost)
-target_link_libraries(${app_name} Qt5::Widgets Qt5::Core Qt5::Gui)
+target_link_directories(${APP_NAME} PRIVATE
+    ${ROOT_DIR}/build
+)
+
+target_link_libraries(${APP_NAME} PRIVATE
+    mx_accl
+    mxprepost
+    ${OpenCV_LIBS}
+    Threads::Threads
+    dl
+)
+
+set_target_properties(${APP_NAME} PROPERTIES
+    BUILD_RPATH "${ROOT_DIR}/build"
+)
