@@ -167,6 +167,7 @@ namespace MX {
             std::unordered_set<int> valid_classes;
             bool class_agnostic = false;  // [Optional] Use class agnostic or not
             bool fast_sigmoid = false;    // [Optional] Use fast sigmoid or not
+            int model_id = 0;
         };
 
         struct YoloFinalConfig {
@@ -181,6 +182,8 @@ namespace MX {
 
             int model_w;
             int model_h;
+
+            int model_id;
         };
     }
 }

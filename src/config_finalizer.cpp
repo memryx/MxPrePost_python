@@ -31,7 +31,7 @@ namespace {  // anonymous namespace for helper functions
 YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloUserConfig& user) {
     YoloFinalConfig final;
 
-    MX::Types::MxModelInfo model_info = accl->get_model_info(0);
+    MX::Types::MxModelInfo model_info = accl->get_model_info(user.model_id);
     if (model_info.use_model_shape_in == true) {
         throw std::runtime_error(
                 "use_model_shape of input must be false for Yolo models in MxPrepost");

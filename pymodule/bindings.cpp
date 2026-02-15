@@ -81,15 +81,15 @@ class BindMxPrepost {
                   std::string classmap_path,
                   std::vector<int> valid_classes,
                   bool fast_sigmoid,
-                  bool class_agnostic = false) {
+                  bool class_agnostic,
+                  int model_id) {
 
         YoloUserConfig config;
-        // config.ori_width = ori_width;
-        // config.ori_height = ori_height;
         config.conf = conf;
         config.iou = iou;
         config.class_agnostic = class_agnostic;
         config.fast_sigmoid = fast_sigmoid;
+        config.model_id = model_id;
 
         // convert valid_classes vector to unordered_set
         config.valid_classes =
@@ -108,7 +108,7 @@ class BindMxPrepost {
         prepost_ = MxPrepost::create(accl, task, config);
 
         // get input shape from model info
-        MX::Types::MxModelInfo model_info = accl->get_model_info(0);
+        MX::Types::MxModelInfo model_info = accl->get_model_info(config.model_id);
         MX::Types::ShapeVector shape_vec = model_info.in_featuremap_shapes[0];
         for (int i = 0; i < shape_vec.size(); ++i) {
             in_shape_.push_back(shape_vec[i]);
@@ -254,7 +254,8 @@ PYBIND11_MODULE(mxprepost, m) {
                           std::string,
                           std::vector<int>,
                           bool,
-                          bool>(),
+                          bool,
+                          int>(),
                  py::arg("accl"),
                  py::arg("task"),
                  py::arg("conf") = 0.3,
@@ -263,20 +264,20 @@ PYBIND11_MODULE(mxprepost, m) {
                  py::arg("valid_classes") = py::list(),
                  py::arg("class_agnostic") = false,
                  py::arg("fast_sigmoid") = false,
+                 py::arg("model_id") = 0,
                  R"doc(
 Create Prepost.
 
 Args:
   accl (MemryX accl): MemryX accelerator object. 
   task (str): Task for post process. Pass yolov[8|9|10|11]-[det|seg|pose]
-  ori_width (int): Original width of the image.
-  ori_height (int): Original height of the image.
   conf (float): Confidence score. [Default is 0.3]
   iou (float): Intersection over Union (IoU) threshold. [Default is 0.4]
   classmap_path (str): The path for a file containing classes separated in each line. [Default using COCO Classes]
   valid_classes (list of ints): The classes to consider. [Default is all classes]
   fast_sigmoid (bool): Use fast sigmoid if True. [Default is False]
   class_agnostic (bool): Use class-agnostic NMS if True. [Default is False]
+  model_id (int): The ID of the model to be used from MemryX accl. [Default is 0]
 )doc")
             .def("draw", &BindMxPrepost::draw)
             .def("preprocess", &BindMxPrepost::preprocess)
