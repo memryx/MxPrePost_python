@@ -1,4 +1,3 @@
-# Imports
 import time
 import argparse
 import numpy as np
@@ -20,15 +19,11 @@ class YoloApp:
     """
 
     def __init__(self, args):
-        """
-        Initialization function.
-        """
-
         self.show = not args.no_show
 
         # Display control and stream initialization
         self.done = False
-        self.num_streams = len(args.video_paths)  # Number of streams
+        self.num_streams = len(args.video_paths)
 
         # Stream-related containers and initialization
         self.streams = []
@@ -36,35 +31,44 @@ class YoloApp:
         self.result_queue = {i: Queue(maxsize=50) for i in range(self.num_streams)}
         self.srcs_are_cams = {i: True for i in range(self.num_streams)}
 
+        # Per-stream original dimensions
+        self.ori_width = {}
+        self.ori_height = {}
+
         # FPS calculation related
         self.frame_count = defaultdict(int)
         self.start_ms = defaultdict(int)
         self.fps_number = defaultdict(float)
         self.history_fps = defaultdict(list)
 
-        # Initialize video captures, models, and dimensions for each stream
+        # Init captures
         for i, video_path in enumerate(args.video_paths):
-            if "/dev/video" in video_path:
-                self.srcs_are_cams[i] = True
-            else:
-                self.srcs_are_cams[i] = False
+            self.srcs_are_cams[i] = ("/dev/video" in video_path)
 
-            vidcap = cv2.VideoCapture(video_path)
-            self.streams.append(vidcap)
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                raise RuntimeError(f"Failed to open video source: {video_path}")
 
-        self.ori_width=int(self.streams[0].get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.ori_height=int(self.streams[0].get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self.streams.append(cap)
 
-        # Start display thread
+            # Store each stream's dimensions
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self.ori_width[i] = w
+            self.ori_height[i] = h
+
         if self.show:
-            self.display_thread = Thread(target=self.display)
+            self.display_thread = Thread(target=self.display, daemon=True)
+
+        # store args for run()
+        self.args = args
 
     def run(self):
         """
         Start inference on the MXA using multiple streams.
         """
         if self.show:
-            self.display_thread.start()  # Start the display thread
+            self.display_thread.start()
 
         local = False
         accl = mxapi.MxAccl(self.dfp, [0], [False, False], local)
@@ -72,14 +76,15 @@ class YoloApp:
         for i in range(self.num_streams):
             accl.connect_stream(self.in_callback, self.out_callback, stream_id=i)
 
-        # init mxprepost pipeline
+        # init mxprepost pipeline (shared across streams)
         self.prepost = mxprepost.MxPrepost(
             accl=accl,
-            task=args.task,
+            task=self.args.task,
             conf=0.3,
             iou=0.4,
             # classmap_path="classes.txt",
             # valid_classes=[0],
+            # model_id=0
         )
 
         accl.start()
@@ -87,27 +92,24 @@ class YoloApp:
 
         self.done = True
 
-        # Join display thread
         if self.show:
             self.display_thread.join()
 
     def in_callback(self, stream_id):
         """
-        Captures a frame for the video device and pre-processes it.
+        Capture + preprocess for a given stream.
         """
-        # if self.srcs_are_cams[stream_id]:
         while True:
             got_frame, frame = self.streams[stream_id].read()
 
             if not got_frame or self.done:
                 return None
 
-            if self.srcs_are_cams[stream_id] and self.cap_queue[stream_id].full():
-                # drop frame
+            # Drop frames if camera + display queue is full
+            if self.srcs_are_cams[stream_id] and self.show and self.cap_queue[stream_id].full():
                 continue
 
             if self.show:
-                # Put the frame in the cap_queue to be processed later
                 self.cap_queue[stream_id].put(frame)
 
             # call preprocess from mxprepost
@@ -117,32 +119,30 @@ class YoloApp:
 
     def out_callback(self, mxa_output, stream_id):
         """
-        Post-process the output from MXA.
+        Postprocess per stream using that stream's original dimensions.
         """
 
-        # call postprocess from mxprepost
-        result = self.prepost.postprocess(mxa_output, self.ori_width, self.ori_height)
-        # raise "stop"
-        # Queue detection results for display
+        result = self.prepost.postprocess(mxa_output, self.ori_width[stream_id], self.ori_height[stream_id])
         if self.show:
+            # Drop results if display queue is full (avoid deadlock)
+            if self.result_queue[stream_id].full():
+                try:
+                    _ = self.result_queue[stream_id].get_nowait()
+                except queue.Empty:
+                    pass
             self.result_queue[stream_id].put(result)
 
         # Calculate FPS
         self.update_fps(stream_id)
 
     def display(self):
-        """
-        Displays the processed frames with detections in separate windows.
-        """
         while not self.done:
-            # Iterate through each stream for displaying frames
             for stream_id in range(self.num_streams):
                 try:
-                    # Python blocky queue, no need to check if not queue.empty()
                     frame = self.cap_queue[stream_id].get(timeout=2)
                     result = self.result_queue[stream_id].get(timeout=2)
                 except queue.Empty:
-                    break
+                    continue
 
                 # Draw detections on the frame
                 display_img = self.prepost.draw(frame, result)
@@ -167,38 +167,33 @@ class YoloApp:
             if cv2.waitKey(1) == ord("q"):
                 self.done = True
 
-        # Close all windows and release resources after processing
         cv2.destroyAllWindows()
-        for stream in self.streams:
-            stream.release()
+        for cap in self.streams:
+            cap.release()
 
     def update_fps(self, stream_id):
-        # increment frame count
         self.frame_count[stream_id] += 1
-
         now_ms = int(time.time() * 1000)
 
         if self.frame_count[stream_id] == 1:
             # record start time
             self.start_ms[stream_id] = now_ms
-        else:
-            # print FPS
-            if self.frame_count[stream_id] % FPS_LOG_INTERVAL == 0:
-                # msg
-                msg = "Frame cnt: {}, Stream {} => FPS: {:.2f}"
-                lines = [
-                    msg.format(self.frame_count[i], i, self.fps_number[i])
-                    for i in range(self.num_streams)
-                ]
-                print("\n".join(lines))
+            return
 
-                # Overwrite previous msg
-                sys.stdout.write(f"\033[{self.num_streams}A")
-                sys.stdout.flush()
+        if self.frame_count[stream_id] % FPS_LOG_INTERVAL == 0:
+            msg = "Frame cnt: {}, Stream {} => FPS: {:.2f}"
+            lines = [
+                msg.format(self.frame_count[i], i, self.fps_number[i])
+                for i in range(self.num_streams)
+            ]
+            print("\n".join(lines))
 
-                # Update history
-                for i in range(self.num_streams):
-                    self.history_fps[i].append(self.fps_number[i])
+            # Overwrite previous msg
+            sys.stdout.write(f"\033[{self.num_streams}A")
+            sys.stdout.flush()
+
+            for i in range(self.num_streams):
+                self.history_fps[i].append(self.fps_number[i])
 
             # update fps_number
             duration_ms = now_ms - self.start_ms[stream_id]
@@ -208,8 +203,8 @@ class YoloApp:
 
     def get_avg_fps(self, stream_id):
         if self.history_fps[stream_id]:
-            return np.mean(self.history_fps[stream_id])
-        return 0
+            return float(np.mean(self.history_fps[stream_id]))
+        return 0.0
 
 
 def main(args):
@@ -227,23 +222,19 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # Argument parser
-    parser = argparse.ArgumentParser(description="\033[34mMemryX YoloV8 Demo\033[0m")
+    parser = argparse.ArgumentParser(description="\033[34mMemryX YOLO Demo\033[0m")
 
-    # Video input paths
     parser.add_argument(
         "--video_paths",
         nargs="+",
         dest="video_paths",
         action="store",
         default=["/dev/video0"],
-        help="Path to video files for inference. Use '/dev/video0' for webcam. (Default:'/dev/video0')",
+        help="Input sources. Use '/dev/video0' for webcam. (Default: '/dev/video0')",
     )
 
-    # Option to turn on display
     parser.add_argument("--no-show", action="store_true", help="Disable display window")
 
-    # DFP model argument
     parser.add_argument(
         "-d",
         "--dfp",
@@ -257,10 +248,8 @@ if __name__ == "__main__":
         "--task",
         type=str,
         required=True,
-        help="Specify the task (e.g. 'yolov8_det' or 'yolov8_seg')",
+        help="Task name (e.g. 'yolov8_det', 'yolov8_seg', 'yolov11_pose')",
     )
 
     args = parser.parse_args()
-
-    # Call the main function
     main(args)
