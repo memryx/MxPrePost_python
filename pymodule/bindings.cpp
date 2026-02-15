@@ -245,6 +245,32 @@ PYBIND11_MODULE(mxprepost, m) {
             .def_readwrite("cls_id", &BBox::cls_id)
             .def_readwrite("cls_name", &BBox::cls_name);
 
+    // -----------------------
+    // Basic types
+    // -----------------------
+    py::class_<MX::Runtime::Point2f>(m, "Point2f")
+            // .def(py::init<>())
+            .def_readwrite("x", &Point2f::x)
+            .def_readwrite("y", &Point2f::y);
+
+    // -----------------------
+    // Mask
+    // -----------------------
+    py::class_<MX::Runtime::Mask>(m, "Mask")
+            // .def(py::init<>())
+            .def_readwrite("xys", &Mask::xys)  // list[Point2f]
+            .def_readwrite("cls_id", &Mask::cls_id);
+
+    // -----------------------
+    // Keypoint
+    // -----------------------
+    py::class_<MX::Runtime::Keypoint>(m, "Keypoint")
+            // .def(py::init<>())
+            // .def(py::init<Point2f, float>(), py::arg("xy"), py::arg("conf"))
+            // .def(py::init<float, float, float>(), py::arg("x"), py::arg("y"), py::arg("conf"))
+            .def_readwrite("xy", &Keypoint::xy)  // Point2f
+            .def_readwrite("conf", &Keypoint::conf);
+
     // Prepost class
     py::class_<BindMxPrepost>(m, "MxPrepost")
             .def(py::init<py::object,
