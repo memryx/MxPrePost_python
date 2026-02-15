@@ -322,7 +322,6 @@ accl.wait();
 
 * Prefer `postprocess(ofmaps, result, ori_w, ori_h)` when you already know original frame size.
 * Use `postprocess(ofmaps, result, original_frame)` if you have the original `cv::Mat` available in the output callback.
-* For best performance, avoid printing results every frame; print every N frames instead.
 
 
 # Compatibility
