@@ -30,10 +30,9 @@ def run_async(
         prepost = mxprepost.MxPrepost(
             accl=accl,
             task=task,
-            ori_width=disp_w,
-            ori_height=disp_h,
             conf=0.3,
             iou=0.4,
+            # class_agnostic=True,  # Default is False, set to True if your model is class-agnostic
         )
 
     # Track timing data
@@ -55,7 +54,7 @@ def run_async(
         """Callback for processing model outputs."""
         nonlocal time_stamps
 
-        _ = prepost.postprocess(mxa_output)
+        _ = prepost.postprocess(mxa_output, disp_w, disp_h)
 
         time_stamps.append(time.perf_counter())
 
