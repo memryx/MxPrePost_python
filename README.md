@@ -44,7 +44,7 @@ class App:
         # Initialize MxPrepost
         self.pp = mxprepost.MxPrepost(
             accl=self.accl,
-            task="yolov8_det"
+            task="yolov8-det"
         )
 
         # Connect callbacks
@@ -119,7 +119,7 @@ class App:
 ```python
 prepost = mxprepost.MxPrepost(
     accl=accl,                    # [required] mxapi.MxAccl instance
-    task="yolov8_det",            # [required] yolovX_Y, Y: `det`, `seg`, `pose`
+    task="yolov8-det",            # [required] Expected format: yolov<n>-[det|seg|pose]
     conf=0.3,                     # [optional] Default 0.3
     iou=0.4,                      # [optional] Default 0.4
     classmap_path="/path/to/classmap.txt"  # [optional] Path to a .txt file containing custom class names (one per line). Defaults to COCO dataset.
@@ -132,9 +132,9 @@ prepost = mxprepost.MxPrepost(
 
 * `task` examples:
 
-  * `yolov8_det`
-  * `yolov8_seg`
-  * `yolov11_pose`
+  * `yolov8-det`
+  * `yolov8-seg`
+  * `yolov11-pose`
 * `model_id` is required only if multiple models are compiled into the same DFP.
 
 ---
@@ -173,7 +173,7 @@ ln -sfv ../../pymodule/build/mxprepost.cpython-*.so .
 ```bash
 python run.py \
   -d models/yolov8.dfp \
-  -t yolov8_det \
+  -t yolov8-det \
   --video_paths /dev/video0
 ```
 
@@ -182,7 +182,7 @@ python run.py \
 ```bash
 python run.py \
   -d models/yolov8.dfp \
-  -t yolov8_det \
+  -t yolov8-det \
   --video_paths videos/sample.mp4
 ```
 
@@ -191,7 +191,7 @@ python run.py \
 ```bash
 python run.py \
   -d models/yolov8.dfp \
-  -t yolov8_det \
+  -t yolov8-det \
   --video_paths /dev/video0 videos/sample.mp4
 ```
 
@@ -200,7 +200,7 @@ python run.py \
 ```bash
 python run.py \
   -d models/yolov8.dfp \
-  -t yolov8_det \
+  -t yolov8-det \
   --video_paths /dev/video0 \
   --no-show
 ```
@@ -212,7 +212,7 @@ python run.py \
 | Argument        | Description                                                  | Default                        |
 | --------------- | ------------------------------------------------------------ | ------------------------------ |
 | `-d`, `--dfp`   | Path to compiled `.dfp` file                                 | **Required**                   |
-| `-t`, `--task`  | YOLO task (`yolov8_det`, `yolov8_seg`, `yolov11_pose`, etc.) | **Required**                   |
+| `-t`, `--task`  | YOLO task (`yolov8-det`, `yolov8-seg`, `yolov11-pose`, etc.) | **Required**                   |
 | `--video_paths` | One or more input sources (camera or video files)            | `/dev/video0`                  |
 | `--no-show`     | Disable display window                                       | Display **enabled** by default |
 
@@ -246,7 +246,7 @@ MxAccl accl{dfp_path, {0}, {false, false}, /*local=*/false};
 //---------------------------------------------------------------
 //-------------------------- MxPrepost --------------------------
 //---------------------------------------------------------------
-// Create MxPrepost (task examples: "yolov8_det", "yolov8_seg", "yolov11_pose")
+// Create MxPrepost (task examples: "yolov8-det", "yolov8-seg", "yolov11-pose")
 YoloUserConfig cfg;
 cfg.conf = 0.3f;
 cfg.iou  = 0.4f;
