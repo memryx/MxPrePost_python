@@ -257,7 +257,39 @@ class YoloApp {
         // config.classmap_path = "...";
         // config.valid_classes = {0};
 
-        prepost_.reset(MxPrepost::create(&accl, args_.task, config));
+        // ===========================
+        // Method 1: Throwing create()
+        // ===========================
+        try {
+            prepost_.reset(MxPrepost::create(&accl, args_.task, config));
+        } catch (const std::exception& e) {
+            std::cerr << e.what() << "\n";
+
+            // Signal shutdown
+            done_.store(true);
+
+            // Clean up display thread safely
+            if (show_ && display_thread_.joinable()) {
+                display_thread_.join();
+            }
+
+            return;  // exit run() cleanly
+        }
+
+        // ==================================
+        // Method 2: No-throw create_safe()
+        // ==================================
+        // std::string err;
+        // if (!MxPrepost::create_safe(&accl, args_.task, config, prepost_, err)) {
+        //     std::cerr << "Failed to create MxPrepost: " << err << "\n";
+
+        //     // Clean shutdown if display thread was started
+        //     done_.store(true);
+        //     if (show_ && display_thread_.joinable()) {
+        //         display_thread_.join();
+        //     }
+        //     return;  // exit run() cleanly (no abort/core dump)
+        // }
 
         // Allocate output buffers once based on model info (shared)
         MX::Types::MxModelInfo model_info = accl.get_model_info(0);

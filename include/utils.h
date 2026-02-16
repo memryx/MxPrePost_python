@@ -130,4 +130,15 @@ namespace MX::Prepost::Util {
     std::vector<LayerParams>
     loadYoloLayerConfig(const std::string& task, int model_w, int model_h);
 
+    std::string normalize(std::string s);
+
+    std::size_t levenshtein(const std::string& a, const std::string& b);
+    std::string colored_diff(const std::string& input, const std::string& target);
+
+}
+
+namespace termcolor {
+    static constexpr const char* reset = "\033[0m";
+    static constexpr const char* red = "\033[31m";
+    static constexpr const char* green = "\033[32m";
 }

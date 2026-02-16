@@ -8,9 +8,29 @@ namespace MX::Runtime {
 
 namespace MX {
     namespace Runtime {
+        class MxError : public std::runtime_error {
+          public:
+            using std::runtime_error::runtime_error;
+        };
+
+        class UnsupportedTaskError : public MxError {
+          public:
+            using MxError::MxError;
+        };
 
         class MxPrepost {
           public:
+            /**
+             * Create a pre/post-processing object for the given task.
+             *
+             * @param accl   Accelerator runtime object (must be non-null).
+             * @param task   Task string like "yolov8-det".
+             * @param config User config.
+             *
+             * @return Raw pointer owned by caller (or wrap into std::unique_ptr).
+             *
+             * @throws UnsupportedTaskError if task is not recognized.
+             */
             virtual ~MxPrepost() = default;
 
             // Pure virtual methods to be implemented by derived classes
@@ -32,10 +52,17 @@ namespace MX {
 
             virtual void draw(cv::Mat& image, const Result& result) = 0;
 
-            // Factory method
+            // Factory method (may throw std::runtime_error on invalid task)
             static MxPrepost* create(MX::Runtime::MxAccl* accl,
                                      const std::string& task,
                                      const YoloUserConfig& config);
+
+            // No-throw factory (for library users who don't want exceptions)
+            static bool create_safe(MX::Runtime::MxAccl* accl,
+                                    const std::string& task,
+                                    const YoloUserConfig& config,
+                                    std::unique_ptr<MxPrepost>& out,
+                                    std::string& err) noexcept;
         };
 
     }  // namespace Runtime

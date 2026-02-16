@@ -419,4 +419,84 @@ namespace MX::Prepost::Util {
         return layers;
     }
 
+    std::string normalize(std::string s) {
+        for (char& c : s) {
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        }
+        return s;
+    }
+
+    std::size_t levenshtein(const std::string& a, const std::string& b) {
+        const std::size_t n = a.size(), m = b.size();
+        if (n == 0)
+            return m;
+        if (m == 0)
+            return n;
+
+        std::vector<std::size_t> prev(m + 1), cur(m + 1);
+        for (std::size_t j = 0; j <= m; ++j)
+            prev[j] = j;
+
+        for (std::size_t i = 1; i <= n; ++i) {
+            cur[0] = i;
+            for (std::size_t j = 1; j <= m; ++j) {
+                const std::size_t cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+                cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost});
+            }
+            std::swap(prev, cur);
+        }
+        return prev[m];
+    }
+    std::string colored_diff(const std::string& input, const std::string& target) {
+        const size_t n = input.size();
+        const size_t m = target.size();
+
+        // Build DP table
+        std::vector<std::vector<size_t>> dp(n + 1, std::vector<size_t>(m + 1));
+
+        for (size_t i = 0; i <= n; ++i)
+            dp[i][0] = i;
+        for (size_t j = 0; j <= m; ++j)
+            dp[0][j] = j;
+
+        for (size_t i = 1; i <= n; ++i) {
+            for (size_t j = 1; j <= m; ++j) {
+                size_t cost = (input[i - 1] == target[j - 1]) ? 0 : 1;
+                dp[i][j] = std::min({
+                        dp[i - 1][j] + 1,        // deletion
+                        dp[i][j - 1] + 1,        // insertion
+                        dp[i - 1][j - 1] + cost  // substitution
+                });
+            }
+        }
+
+        // Backtrack to build colored output
+        std::string result;
+        size_t i = n, j = m;
+
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && dp[i][j] == dp[i - 1][j - 1] && input[i - 1] == target[j - 1]) {
+                // Match
+                result = input[i - 1] + result;
+                --i;
+                --j;
+            } else if (i > 0 && j > 0 && dp[i][j] == dp[i - 1][j - 1] + 1) {
+                // Substitution
+                result = std::string(termcolor::green) + target[j - 1] + termcolor::reset + result;
+                --i;
+                --j;
+            } else if (j > 0 && dp[i][j] == dp[i][j - 1] + 1) {
+                // Insertion (missing char)
+                result = std::string(termcolor::green) + target[j - 1] + termcolor::reset + result;
+                --j;
+            } else {
+                // Deletion (extra char)
+                result = std::string(termcolor::red) + input[i - 1] + termcolor::reset + result;
+                --i;
+            }
+        }
+
+        return result;
+    }
+
 }

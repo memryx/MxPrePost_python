@@ -229,6 +229,11 @@ PYBIND11_MODULE(mxprepost, m) {
     // helper to safely call import_array(), otherwise got segfault when parsing numpy arrays
     numpy_import_array_wrapper();
 
+    // Register C++ exception → Python exception
+    py::register_exception<MX::Runtime::UnsupportedTaskError>(m, "UnsupportedTaskError");
+
+    py::register_exception<MX::Runtime::MxError>(m, "MxError");
+
     // Result class
     py::class_<MX::Runtime::Result>(m, "Result")
             .def(py::init<>())

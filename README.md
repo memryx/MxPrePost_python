@@ -264,7 +264,26 @@ auto in_cb = [&](std::vector<const MX::Types::FeatureMap*> dst, int stream_id) -
     //---------------------------------------------------------------
 	//-------------------------- MxPrepost --------------------------
 	//---------------------------------------------------------------
-    cv::Mat input = pp->preprocess(frame);
+    std::unique_ptr<MxPrepost> pp;
+
+    // ===========================
+    // Method 1: Throwing create()
+    // ===========================
+    try {
+        pp.reset(MxPrepost::create(&accl, task, cfg));   // may throw (e.g., unsupported task)
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to create MxPrepost: " << e.what() << "\n";
+        return 1; // or handle error appropriately
+    }
+
+    // ==================================
+    // Method 2: No-throw create_safe()
+    // ==================================
+    // std::string err;
+    // if (!MxPrepost::create_safe(&accl, task, cfg, pp, err)) {
+    //     std::cerr << "Failed to create MxPrepost: " << err << "\n";
+    //     return 1; // or handle error appropriately
+    // }
 
     dst[0]->set_data(reinterpret_cast<float*>(input.data));
     return true;
