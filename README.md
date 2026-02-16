@@ -124,7 +124,8 @@ prepost = mxprepost.MxPrepost(
     iou=0.4,                      # [optional] Default 0.4
     classmap_path="/path/to/classmap.txt"  # [optional] Path to a .txt file containing custom class names (one per line). Defaults to COCO dataset.
     valid_classes=[0],          # [optional] List of class IDs to return. All other detections will be ignored (e.g., [0] for person only in COCO dataset).
-    model_id=0                    # [optional] model_id in the .dfp file. Default 0
+    model_id=0                  # [optional] model_id in the .dfp file. Default 0
+    # class_agnostic=True,      # [optional] Default is False, set to True if your model is class-agnostic
 )
 ```
 
@@ -250,6 +251,7 @@ MxAccl accl{dfp_path, {0}, {false, false}, /*local=*/false};
 YoloUserConfig cfg;
 cfg.conf = 0.3f;
 cfg.iou  = 0.4f;
+// cfg.class_agnostic = True // Default is False, set to True if your model is class-agnostic
 std::unique_ptr<MxPrepost> pp{MxPrepost::create(&accl, task, cfg)};
 
 // Get original dimensions once (from your cv::VideoCapture)
