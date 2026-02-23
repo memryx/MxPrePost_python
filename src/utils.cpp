@@ -323,8 +323,8 @@ namespace MX::Prepost::Util {
             float softmax_sum = 0.0f;
             float weighted_sum = 0.0f;
 
-// Single pass for exp calculation to optimize performance
-#pragma omp simd reduction(+ : softmax_sum, weighted_sum)
+            // Single pass for exp calculation to optimize performance
+            #pragma omp simd reduction(+ : softmax_sum, weighted_sum)
             for (int i = 0; i < 16; ++i) {
                 float exp_val = expf(side_dist_buf[i] - local_max);
                 softmax_sum += exp_val;

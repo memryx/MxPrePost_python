@@ -8,7 +8,7 @@ namespace MX::Runtime {
 }
 
 namespace MX {
-    namespace Runtime {
+    namespace Prepost {
         class ConfigFinalizer {
           public:
             static YoloFinalConfig finalize(MX::Runtime::MxAccl* accl,

@@ -9,7 +9,7 @@ namespace MX::Prepost::Util {
 }
 
 namespace MX {
-    namespace Runtime {
+    namespace Prepost {
         class Yolo10Detect : public MX::Runtime::MxPrepost {
 
           public:
@@ -27,14 +27,19 @@ namespace MX {
             void draw(cv::Mat& image, const Result& result) override;
 
           private:
+            //-----------------------------
+            // model-specific constants
+            constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
+            constexpr size_t kNumPostProcessLayers = 3; // always 3
+            constexpr size_t total_preds_ = 8400; // number of predictions -- fixed by model arch
+            //-----------------------------
+
             void postprocess_impl(const std::vector<float*>& outputs,
                                   Result& result,
                                   int ori_w,
                                   int ori_h);
-            static constexpr size_t kNumPostProcessLayers = 3;
             std::vector<MX::Prepost::Util::LayerParams> yolo_post_layers_;
 
-            size_t total_preds_ = 8400;
 
             // misc
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;

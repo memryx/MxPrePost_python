@@ -1,13 +1,8 @@
 #pragma once
 #include "config.h"
 
-// Forward declaration
-namespace MX::Runtime {
-    class MxAccl;
-}
-
 namespace MX {
-    namespace Runtime {
+    namespace Prepost {
         class MxError : public std::runtime_error {
           public:
             using std::runtime_error::runtime_error;
@@ -65,5 +60,5 @@ namespace MX {
                                     std::string& err) noexcept;
         };
 
-    }  // namespace Runtime
+    }  // namespace Prepost
 }  // namespace MX

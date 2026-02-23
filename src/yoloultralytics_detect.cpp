@@ -16,8 +16,103 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
     // init score manager
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
-    // Load layer configuration from embedded YAML
-    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
+    //------------------------------------------------------------------------------------------------
+    // derive shape config from:
+    // * model input shape (from accl model_info)
+    // * number of classes (from class_labels size)
+    // * arch parameters: 
+    //   * num layers
+    //   * strides
+    //   * DFL with X coord channels
+    //   * total preds
+    
+    auto model_info = accl->get_model_info(cfg_.model_id);
+
+    yolo_post_layers_.resize(NUM_LAYERS);
+
+    std::vector<MX::Types::ShapeVector> expected_coord_shapes;
+    std::vector<MX::Types::ShapeVector> expected_conf_shapes;
+
+    // total_preds_ is the sum of (height * width) across all layers
+    total_preds_ = 0;
+
+    for(int i=0; i < NUM_LAYERS; ++i) {
+        int stride = STRIDES[i];
+        expected_coord_shapes.push_back({cfg_.model_h / stride, cfg_.model_w / stride, 1, COORD_FMAP_SIZE});
+        expected_conf_shapes.push_back({cfg_.model_h / stride, cfg_.model_w / stride, 1, static_cast<int64_t>(cfg_.class_labels.size())});
+        total_preds_ += (cfg_.model_h / stride) * (cfg_.model_w / stride);
+    }
+
+    // the shapes in the vectors are ordered from small stride to big stride [because STRIDES must be ordered like this]
+
+    // match expected shapes with actual model input shapes to find the correct ports for each layer
+    // TODO: there is a CORNER CASE where this DOES NOT WORK if the number of classes == COORD_FMAP_SIZE
+    //       in this situation, we'll have to guesstimate based on the DFP.... port order (coord then conf)
+    //       generally holds true, but we'll warn the user to please provide a full layer_name to port
+    //       mapping if they encounter any issues!
+    int num_ofmaps = model_info.out_featuremap_shapes.size();
+
+    if(cfg_.class_labels.size() != COORD_FMAP_SIZE){
+        for (int i=0; i < NUM_LAYERS; ++i){
+            yolo_post_layers_[i].height = cfg_.model_h / STRIDES[i];
+            yolo_post_layers_[i].width = cfg_.model_w / STRIDES[i];
+            yolo_post_layers_[i].stride = STRIDES[i];
+
+            bool found_coord = false;
+            bool found_conf = false;
+            for (int port = 0; port < num_ofmaps; ++port) {
+                const auto& actual_shape = model_info.out_featuremap_shapes[port];
+                if (actual_shape == expected_coord_shapes[i]) {
+                    yolo_post_layers_[i].coord_port = port;
+                    found_coord = true;
+                } else if (actual_shape == expected_conf_shapes[i]) {
+                    yolo_post_layers_[i].conf_port = port;
+                    found_conf = true;
+                }
+            }
+
+            if(!found_coord) {
+                throw std::runtime_error("Could not find coordinate output port for layer " + std::to_string(i));
+            }
+            if(!found_conf) {
+                throw std::runtime_error("Could not find confidence output port for layer " + std::to_string(i));
+            }
+
+        }
+    }
+    else {
+        // warning for the corner case
+        std::cerr << "WARNING: Number of classes (" << cfg_.class_labels.size() << ") is equal to COORD_FMAP_SIZE (" << COORD_FMAP_SIZE << "). "
+                  << "This may cause ambiguity in automatically identifying coordinate and confidence ports based on output shapes. "
+                  << "Please provide an explicit mapping of layer names to functions (coord, conf, stride)."
+                  << std::endl;
+
+        // fallback to guesstimation based on port order (coord then conf)
+        for (int i=0; i < NUM_LAYERS; ++i){
+            yolo_post_layers_[i].height = cfg_.model_h / STRIDES[i];
+            yolo_post_layers_[i].width = cfg_.model_w / STRIDES[i];
+            yolo_post_layers_[i].stride = STRIDES[i];
+
+            yolo_post_layers_[i].coord_port = i * 2; // even ports for coord
+            yolo_post_layers_[i].conf_port = i * 2 + 1; // odd ports for conf
+        }
+
+        // double check that our guessed shapes match the expected shapes, if not, throw an error
+        for (int i=0; i < NUM_LAYERS; ++i){
+            const auto& coord_shape = model_info.out_featuremap_shapes[yolo_post_layers_[i].coord_port];
+            const auto& conf_shape = model_info.out_featuremap_shapes[yolo_post_layers_[i].conf_port];
+
+            if (coord_shape != expected_coord_shapes[i]) {
+                throw std::runtime_error("Guessed coordinate port shape does not match expected shape for layer " + std::to_string(i));
+            }
+            if (conf_shape != expected_conf_shapes[i]) {
+                throw std::runtime_error("Guessed confidence port shape does not match expected shape for layer " + std::to_string(i));
+            }
+        }
+    }
+    //------------------------------------------------------------------------------------------------
+
+
 }
 
 cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
@@ -77,7 +172,7 @@ void YoloUltralyticsDetect::postprocess_impl(const std::vector<float*>& outputs,
     std::vector<BBox> all_boxes;
     all_boxes.reserve(total_preds_);
 
-    for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
+    for (size_t layer_id = 0; layer_id < NUM_LAYERS; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];
         float* conf_base = outputs.at(layer.conf_port);
         float* coord_base = outputs.at(layer.coord_port);

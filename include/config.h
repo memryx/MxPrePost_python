@@ -1,18 +1,14 @@
 #pragma once
 #include <array>
 #include <iostream>
-#include <opencv2/opencv.hpp> /* imshow */
+#include <opencv2/opencv.hpp>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
 namespace MX {
-    namespace Runtime {
+    namespace Prepost {
 
-        constexpr int COORD_FMAP_SIZE = 64;  // Number of feature map channels for bbox coordinates
-        constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coefficients
-        constexpr int MASK_PROTO_H = 160;   // Mask proto height
-        constexpr int MASK_PROTO_W = 160;   // Mask proto width
         constexpr int NUM_KEYPOINTS = 17;   // Number of keypoints for pose estimation
 
         // Pairs of keypoints for drawing skeleton
