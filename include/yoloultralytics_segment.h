@@ -29,12 +29,12 @@ namespace MX {
           private:
             //-----------------------------
             // model/task-specific constants
-            constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
-            constexpr size_t kNumPostProcessLayers = 3; // always 3
-            constexpr size_t total_preds_ = 8400; // number of predictions -- fixed by model arch
-            constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coeffs
-            constexpr int MASK_PROTO_H = 160;   // Mask proto height
-            constexpr int MASK_PROTO_W = 160;   // Mask proto width
+            static constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
+            static constexpr size_t kNumPostProcessLayers = 3; // always 3
+            static constexpr size_t total_preds_ = 8400; // number of predictions -- fixed by model arch
+            static constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coeffs
+            static constexpr int MASK_PROTO_H = 160;   // Mask proto height
+            static constexpr int MASK_PROTO_W = 160;   // Mask proto width
             //-----------------------------
             
             void postprocess_impl(const std::vector<float*>& outputs,

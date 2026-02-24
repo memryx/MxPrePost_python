@@ -3,15 +3,10 @@
 #include "MxPrepost.h"
 #include "utils.h"
 
-// forward declaration
-namespace MX::Prepost::Util {
-    class ScoreManager;
-}
-
 namespace MX {
-    namespace Runtime {
+    namespace Prepost {
 
-        class YoloUltralyticsPose : public MX::Runtime::MxPrepost {
+        class YoloUltralyticsPose : public MX::Prepost::MxPrepost {
 
           public:
             YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
@@ -28,6 +23,16 @@ namespace MX {
             void draw(cv::Mat& image, const Result& result) override;
 
           private:
+            //-----------------------------
+            // model/task-specific constants
+            static constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
+            static constexpr size_t kNumPostProcessLayers = 3; // always 3
+            static constexpr size_t total_preds_ = 8400; // number of predictions -- fixed by model arch
+            static constexpr int MASK_FMAP_SIZE = 32;  // Number of feature map channels for mask coeffs
+            static constexpr int MASK_PROTO_H = 160;   // Mask proto height
+            static constexpr int MASK_PROTO_W = 160;   // Mask proto width
+            static constexpr int NUM_KEYPOINTS = 17;   // Number of keypoints for pose estimation
+            //-----------------------------
             void postprocess_impl(const std::vector<float*>& outputs,
                                   Result& result,
                                   int ori_w,

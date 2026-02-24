@@ -1,4 +1,6 @@
-#pragma once
+#ifndef MX_PREPOST_CONFIG_H
+#define MX_PREPOST_CONFIG_H
+
 #include <array>
 #include <iostream>
 #include <opencv2/opencv.hpp>
@@ -8,8 +10,6 @@
 
 namespace MX {
     namespace Prepost {
-
-        constexpr int NUM_KEYPOINTS = 17;   // Number of keypoints for pose estimation
 
         // Pairs of keypoints for drawing skeleton
         constexpr std::array<std::pair<int, int>, 18> KEYPOINT_PAIRS = {{
@@ -155,13 +155,17 @@ namespace MX {
             float iou = 0.4f;   // [Optional] IOU threshold for NMS
 
             // [Optional] Path to a .txt file containing custom class names (one per line).
-            // Defaults to COCO dataset.
-            std::string classmap_path;
+            // If this and custom_class_labels are not set, defaults to COCO dataset.
+            std::string classmap_path = "";
 
-            //  [optional] List of class IDs to return. All other detections will be ignored (e.g.,
-            //  [0] for person only in COCO dataset).
+            // [Optional] List of custom classes in order of their IDs.
+            // If this and classmap_path are not set, defaults to COCO dataset.
+            std::vector<std::string> custom_class_labels{};
+
+            //  [optional] List of class IDs to return. All other detections will be ignored
+            //  (e.g., [0] for 'person' only in COCO dataset)
             std::unordered_set<int> valid_classes;
-            bool class_agnostic = false;  // [Optional] Use class agnostic or not
+            bool class_agnostic = true;  // [Optional] Use class agnostic or not
             bool fast_sigmoid = false;    // [Optional] Use fast sigmoid or not
             int model_id = 0;
         };
@@ -169,12 +173,14 @@ namespace MX {
         struct YoloFinalConfig {
             float conf;
             float iou;
-            std::vector<int> valid_classes;
             bool class_agnostic;
             bool fast_sigmoid;
 
-            // extra params for compared to YoloUserConfig
+            // the final list of classes, from whatever source
             std::vector<std::string> class_labels;
+
+            // valid class IDs
+            std::vector<int> valid_classes;
 
             int model_w;
             int model_h;
@@ -183,3 +189,5 @@ namespace MX {
         };
     }
 }
+
+#endif  // MX_PREPOST_CONFIG_H

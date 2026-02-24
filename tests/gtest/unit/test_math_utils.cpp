@@ -13,8 +13,8 @@ using MX::Prepost::Util::draw_mask;
 using MX::Prepost::Util::get_best_label;
 using MX::Prepost::Util::nms;
 using MX::Prepost::Util::preprocess;
-using MX::Runtime::BBox;
-using MX::Runtime::Mask;
+using MX::Prepost::BBox;
+using MX::Prepost::Mask;
 
 namespace {
     constexpr float DFL_PEAK_LOGIT = 20.0f;

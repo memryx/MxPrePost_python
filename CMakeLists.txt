@@ -90,3 +90,6 @@ target_include_directories(mxprepost PRIVATE
 )
 
 target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl yaml-cpp)
+
+
+add_subdirectory(samples/cpp)

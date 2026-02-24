@@ -1,5 +1,8 @@
-#pragma once
+#ifndef MX_MXPREPOST_H
+#define MX_MXPREPOST_H
+
 #include "config.h"
+#include <memx/accl/MxAccl.h>
 
 namespace MX {
     namespace Prepost {
@@ -62,3 +65,5 @@ namespace MX {
 
     }  // namespace Prepost
 }  // namespace MX
+
+#endif  // MX_MXPREPOST_H

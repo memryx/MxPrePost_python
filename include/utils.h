@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MX_PREPOST_UTILS_H
+#define MX_PREPOST_UTILS_H
 
 #include "config.h"
 
@@ -9,8 +10,6 @@
 #include <vector>
 
 namespace MX::Prepost::Util {
-
-    using namespace MX::Runtime;
 
     /**
      * @brief ScoreManager handles confidence score thresholding and conversion.
@@ -142,3 +141,5 @@ namespace termcolor {
     static constexpr const char* red = "\033[31m";
     static constexpr const char* green = "\033[32m";
 }
+
+#endif  // MX_PREPOST_UTILS_H

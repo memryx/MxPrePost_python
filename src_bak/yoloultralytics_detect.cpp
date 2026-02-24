@@ -5,7 +5,6 @@
 
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
-using namespace MX::Prepost;
 
 YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
                                              const YoloUserConfig& user_cfg,

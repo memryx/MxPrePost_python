@@ -1,16 +1,12 @@
-#pragma once
+#ifndef MX_YOLOULTRALYTICS_DETECT_H
+#define MX_YOLOULTRALYTICS_DETECT_H
 
 #include "MxPrepost.h"
 #include "utils.h"
 
-// forward declaration
-namespace MX::Prepost::Util {
-    class ScoreManager;
-}
-
 namespace MX {
     namespace Prepost {
-        class YoloUltralyticsDetect : public MX::Runtime::MxPrepost {
+        class YoloUltralyticsDetect : public MX::Prepost::MxPrepost {
 
           public:
             explicit YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
@@ -29,9 +25,9 @@ namespace MX {
           private:
             //-----------------------------
             // model/task-specific constants
-            constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
-            constexpr const std::vector<int> STRIDES{8, 16, 32}; // fixed by model arch
-            constexpr int    NUM_LAYERS = STRIDES.size();
+            static constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
+            static constexpr std::array<int, 3> STRIDES = {8, 16, 32}; // fixed by model arch
+            static constexpr int    NUM_LAYERS = STRIDES.size();
             //-----------------------------
             size_t total_preds_;
             
@@ -48,3 +44,5 @@ namespace MX {
 
     }
 }
+
+#endif

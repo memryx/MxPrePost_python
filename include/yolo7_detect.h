@@ -10,7 +10,7 @@ namespace MX::Prepost::Util {
 
 namespace MX {
     namespace Prepost {
-        class Yolo7Detect : public MX::Runtime::MxPrepost {
+        class Yolo7Detect : public MX::Prepost::MxPrepost {
 
           public:
             Yolo7Detect(MX::Runtime::MxAccl* accl,

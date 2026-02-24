@@ -47,22 +47,15 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
     finalcfg.iou = user.iou;
     finalcfg.class_agnostic = user.class_agnostic;
     finalcfg.fast_sigmoid = user.fast_sigmoid;
-    finalcfg.model_id = user.model_id;
 
     // For Class Labels
-    if (user.classmap_path.empty() && user.custom_class_labels.empty()) {
+    if (user.classmap_path.empty()) {
         for (const auto& label : COCO_NAMES) {
             finalcfg.class_labels.push_back(label);
         }
-    } else if (user.classmap_path.empty() == false && user.custom_class_labels.empty()) {
+    } else {
         // read from file
         finalcfg.class_labels = _load_classes(user.classmap_path);
-    } else if (user.custom_class_labels.empty() == false && user.classmap_path.empty()) {
-        // read from user input
-        finalcfg.class_labels = user.custom_class_labels;
-    } else {
-        throw std::invalid_argument(
-                "Both classmap_path and custom_class_labels are set. Please provide only one source of class labels.");
     }
 
     // For Valid Classes

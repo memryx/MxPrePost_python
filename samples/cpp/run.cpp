@@ -18,6 +18,7 @@
 
 namespace fs = std::filesystem;
 using namespace MX::Runtime;
+using namespace MX::Prepost;
 
 static constexpr int FPS_LOG_INTERVAL = 30;  // print FPS every X frames
 static constexpr size_t QUEUE_MAX = 50;      // Queue(maxsize=50)
@@ -73,7 +74,7 @@ static bool parse_args(int argc, char** argv, Args& out) {
     return !(out.dfp.empty() || out.task.empty());
 }
 
-static void print_result(const MX::Runtime::Result& result) {
+static void print_result(const Result& result) {
     // ---------------------------
     // Detection (Bounding Boxes)
     // ---------------------------
@@ -201,7 +202,7 @@ class YoloApp {
         for (int i = 0; i < num_streams_; ++i) {
             cap_queue_.push_back(std::make_unique<BoundedQueue<cv::Mat>>(QUEUE_MAX));
             result_queue_.push_back(
-                    std::make_unique<BoundedQueue<MX::Runtime::Result>>(QUEUE_MAX));
+                    std::make_unique<BoundedQueue<Result>>(QUEUE_MAX));
         }
 
         // Open streams and store per-stream dims
@@ -219,10 +220,19 @@ class YoloApp {
             const std::string& p = args.video_paths[i];
             srcs_are_cams_[i] = (p.find("/dev/video") != std::string::npos);
 
-            cv::VideoCapture cap(p);
+            cv::VideoCapture cap(p, cv::CAP_V4L2);
             if (!cap.isOpened()) {
                 throw std::runtime_error("Failed to open video source: " + p);
             }
+
+            // force fourcc mjpg and 1920x1080 and 30 fps
+            if (srcs_are_cams_[i]) {
+                cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+                cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
+                cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
+                cap.set(cv::CAP_PROP_FPS, 30);
+            }
+
             ori_w_[i] = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             ori_h_[i] = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
 
@@ -231,15 +241,23 @@ class YoloApp {
     }
 
     void run() {
+
+        // Set OpenCV threads to the num_streams but no more than half the
+        // available threads, and at least =1
+        cv::setNumThreads( max(1,min(num_streams_, cv::getNumThreads()/2)) );
+
         if (show_) {
             display_thread_ = std::thread(&YoloApp::display, this);
         }
 
         bool local = false;
-        std::vector<int> device_ids{0};
+        std::vector<int> device_ids{0,1};
         std::array<bool, 2> use_model_shape{false, false};
+        SchedulerOptions options{200, 0, 16, 21, false, 11000, false, 50, 6};
 
-        MX::Runtime::MxAccl accl{fs::path(args_.dfp), device_ids, use_model_shape, local};
+        MxAccl accl{fs::path(args_.dfp), device_ids, use_model_shape, local, options};
+        accl.set_operating_frequency(0, MX::Types::FREQ_500MHz);
+        accl.set_operating_frequency(1, MX::Types::FREQ_500MHz);
 
         // Connect streams first
         for (int i = 0; i < num_streams_; ++i) {
@@ -254,8 +272,10 @@ class YoloApp {
         YoloUserConfig config;
         config.conf = 0.3f;
         config.iou = 0.4f;
-        // config.classmap_path = "...";
+        config.model_id = 0;
+        // config.classmap_path = "classes.txt";
         // config.valid_classes = {0};
+        config.custom_class_labels = {"person", "vehicle", "animal"};
 
         // ===========================
         // Method 1: Throwing create()
@@ -365,7 +385,7 @@ class YoloApp {
         }
 
         // Postprocess into a Result, using this stream's original dims
-        MX::Runtime::Result result;
+        Result result;
 
         prepost_->postprocess(ofmap_ptrs_, result, ori_w_[stream_id], ori_h_[stream_id]);
         // print_result(result);
@@ -385,7 +405,7 @@ class YoloApp {
         while (!done_.load()) {
             for (int stream_id = 0; stream_id < num_streams_; ++stream_id) {
                 cv::Mat frame;
-                MX::Runtime::Result result;
+                Result result;
 
                 bool got_f = cap_queue_[stream_id]->pop_wait(frame, DISPLAY_GET_TIMEOUT_MS);
                 bool got_r = result_queue_[stream_id]->pop_wait(result, DISPLAY_GET_TIMEOUT_MS);
@@ -466,7 +486,7 @@ class YoloApp {
     std::vector<int> ori_h_;
 
     std::vector<std::unique_ptr<BoundedQueue<cv::Mat>>> cap_queue_;
-    std::vector<std::unique_ptr<BoundedQueue<MX::Runtime::Result>>> result_queue_;
+    std::vector<std::unique_ptr<BoundedQueue<Result>>> result_queue_;
 
     std::unique_ptr<MxPrepost> prepost_;
 
