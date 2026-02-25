@@ -84,5 +84,8 @@ YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloU
     finalcfg.model_h = model_info.in_featuremap_shapes[0][0];
     finalcfg.model_w = model_info.in_featuremap_shapes[0][1];
 
+    // Copy override_layer_mapping
+    finalcfg.override_layer_mapping = user.override_layer_mapping;
+
     return finalcfg;
 }

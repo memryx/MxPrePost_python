@@ -132,7 +132,7 @@ namespace MX::Prepost::Util {
                       bbox_thickness,
                       cv::LINE_4);
 
-        sprintf(text, "%s(%.f%%)", bbox.cls_name.c_str(), 100 * conf);
+        snprintf(text, 63, "%s(%.f%%)", bbox.cls_name.c_str(), 100 * conf);
 
         text_size = cv::getTextSize(text, FONT, 2 * font_scale, bbox_thickness, &baseline);
 
@@ -239,7 +239,8 @@ namespace MX::Prepost::Util {
         cv::rectangle(image, rect, color, 2);  // Thickness of 2
 
         // 4. Draw Label Text and Background
-        std::string text = COCO_NAMES[mask.cls_id];
+        std::string text = mask.cls_name;
+
         int font_face = cv::FONT_HERSHEY_SIMPLEX;
         double font_scale = 0.5;
         int thickness = 1;

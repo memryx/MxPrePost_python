@@ -6,7 +6,9 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <unordered_set>
+#include <map>
 #include <vector>
+#include <utility>
 
 namespace MX {
     namespace Prepost {
@@ -132,6 +134,7 @@ namespace MX {
         struct Mask {
             std::vector<Point2f> xys;
             int cls_id;
+            std::string cls_name;
         };
 
         struct Keypoint {
@@ -149,6 +152,9 @@ namespace MX {
             std::vector<Mask> masks;
             std::vector<std::vector<Keypoint>> keypoints;
         };
+
+
+
 
         struct YoloUserConfig {
             float conf = 0.3f;  // [Optional] Confidence threshold
@@ -168,6 +174,10 @@ namespace MX {
             bool class_agnostic = true;  // [Optional] Use class agnostic or not
             bool fast_sigmoid = false;    // [Optional] Use fast sigmoid or not
             int model_id = 0;
+
+            // [Optional/Advanced] map of stride --> coord and conf port layer_names
+            // note: yolov7 doesn't separate coord and conf
+            std::map<int, std::array<std::string, 2>> override_layer_mapping;
         };
 
         struct YoloFinalConfig {
@@ -186,6 +196,8 @@ namespace MX {
             int model_h;
 
             int model_id;
+            
+            std::map<int, std::array<std::string, 2>> override_layer_mapping;
         };
     }
 }
