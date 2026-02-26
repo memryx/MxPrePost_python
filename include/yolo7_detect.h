@@ -27,14 +27,18 @@ namespace MX {
             void draw(cv::Mat& image, const Result& result) override;
 
           private:
+            //-----------------------------
+            // model/task-specific constants
+            static constexpr std::array<int, 3> STRIDES = {8, 16, 32}; // fixed by model arch
+            static constexpr int    NUM_LAYERS = STRIDES.size();
+            //-----------------------------
+            size_t total_preds_;
+            
             void postprocess_impl(const std::vector<float*>& outputs,
                                   Result& result,
                                   int ori_w,
                                   int ori_h);
-            static constexpr size_t kNumPostProcessLayers = 3;
             std::vector<MX::Prepost::Util::LayerParams> yolo_post_layers_;
-
-            size_t total_preds_ = 8400 * kNumPostProcessLayers;
 
             // misc
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;

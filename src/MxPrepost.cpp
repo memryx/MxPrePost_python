@@ -1,7 +1,7 @@
 #include "MxPrepost.h"
 
 //#include "yolo10_detect.h"
-//#include "yolo7_detect.h"
+#include "yolo7_detect.h"
 #include "yoloultralytics_detect.h"
 //#include "yoloultralytics_pose.h"
 //#include "yoloultralytics_segment.h"
@@ -19,8 +19,8 @@ namespace {
             std::function<MxPrepost*(MxAccl*, const YoloUserConfig&, const std::string&)>;
 
     const std::unordered_map<std::string, CreatorFn> kRegistry = {
-            //{"yolov7-det",
-            // [](auto* a, const auto& c, const auto& t) { return new Yolo7Detect(a, c, t); }},
+            {"yolov7-det",
+             [](auto* a, const auto& c, const auto& t) { return new Yolo7Detect(a, c, t); }},
             {"yolov8-det",
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
