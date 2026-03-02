@@ -1,6 +1,6 @@
 #include "config_finalizer.h"
 
-#include "memx/accl/MxAccl.h"
+#include "memx/accl/MxAcclBase.h"
 
 #include <fstream>
 using namespace MX::Runtime;
@@ -28,7 +28,7 @@ namespace {  // anonymous namespace for helper functions
     }
 }
 
-YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAccl* accl, const YoloUserConfig& user) {
+YoloFinalConfig ConfigFinalizer::finalize(MX::Runtime::MxAcclBase* accl, const YoloUserConfig& user) {
     YoloFinalConfig final;
 
     MX::Types::MxModelInfo model_info = accl->get_model_info(user.model_id);

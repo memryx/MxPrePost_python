@@ -6,7 +6,7 @@
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
+YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAcclBase* accl,
                                          const YoloUserConfig& user_cfg,
                                          const std::string& task) {
 
@@ -17,7 +17,7 @@ YoloUltralyticsPose::YoloUltralyticsPose(MX::Runtime::MxAccl* accl,
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
     // Load layer configuration from embedded YAML
-    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_h, cfg_.model_w);
 
     // Process anchors for each layer (computed after getting yolo_post_layers_)
     for (size_t layer_id = 0; layer_id < kNumPostProcessLayers; ++layer_id) {
@@ -100,23 +100,26 @@ void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs,
     if (original_image.empty()) {
         throw std::invalid_argument("original_image must be non-empty for postprocess");
     }
-    postprocess_impl(outputs, result, original_image.cols, original_image.rows);
+    postprocess_impl(outputs, result, original_image.rows, original_image.cols);
 }
 
 void YoloUltralyticsPose::postprocess(const std::vector<float*>& outputs,
                                       Result& result,
-                                      int ori_w,
-                                      int ori_h) {
+                                      int ori_h,
+                                      int ori_w) {
     if (ori_w <= 0 || ori_h <= 0) {
         throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
     }
-    postprocess_impl(outputs, result, ori_w, ori_h);
+    postprocess_impl(outputs, result, ori_h, ori_w);
 }
 
 void YoloUltralyticsPose::postprocess_impl(const std::vector<float*>& outputs,
                                            Result& result,
-                                           int ori_w,
-                                           int ori_h) {
+                                           int ori_h,
+                                           int ori_w) {
+
+    result.boxes.clear();
+    result.keypoints.clear();
 
     const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
 
@@ -157,6 +160,17 @@ void YoloUltralyticsPose::postprocess_impl(const std::vector<float*>& outputs,
             float y1 = (coord[1] - lb.pad_top) / lb.ratio;
             float x2 = (coord[2] - lb.pad_left) / lb.ratio;
             float y2 = (coord[3] - lb.pad_top) / lb.ratio;
+
+            // Clip to image bounds
+            x1 = std::max(0.0f, std::min(x1, (float)ori_w));
+            y1 = std::max(0.0f, std::min(y1, (float)ori_h));
+            x2 = std::max(0.0f, std::min(x2, (float)ori_w));
+            y2 = std::max(0.0f, std::min(y2, (float)ori_h));
+
+            // Drop invalid/degenerate boxes
+            if (x2 <= x1 || y2 <= y1) {
+                continue;
+            }
 
             all_boxes.emplace_back(x1, y1, x2, y2, score, 0, "person");
 

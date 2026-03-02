@@ -7,7 +7,7 @@
 #include <numpy/ndarrayobject.h>
 #include <numpy/ndarraytypes.h>
 
-#include "memx/accl/MxAccl.h"
+#include "memx/accl/MxAcclBase.h"
 #include "memx/prepost/MxPrepost.h"
 
 #include <opencv2/opencv.hpp>
@@ -99,10 +99,10 @@ class BindMxPrepost {
         config.classmap_path = std::move(classmap_path);
 
         // TODO: check pyaccl type first
-        // get PyMxAccl ptr from pyaccl
+        // get PyMxAcclBase ptr from pyaccl
         py::object ptr = pyaccl.attr("get_raw_ptr")();
         uintptr_t addr = ptr.cast<uintptr_t>();
-        MX::Runtime::MxAccl* accl = reinterpret_cast<MX::Runtime::MxAccl*>(addr);
+        MX::Runtime::MxAcclBase* accl = reinterpret_cast<MX::Runtime::MxAcclBase*>(addr);
 
         // create MxPrepost using factory method
         prepost_ = MxPrepost::create(accl, task, config);
@@ -137,18 +137,6 @@ class BindMxPrepost {
 
     MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps) {
 
-        // init ofmap ptrs
-        if (ofmap_ptrs_.empty()) {
-            ofmap_ptrs_.resize(ofmaps.size());
-        }
-
-        // assign ofmap ptrs
-        for (int i = 0; i < static_cast<int>(ofmaps.size()); ++i) {
-            py::buffer_info info = ofmaps[i].request();
-            float* ptr = (float*)info.ptr;
-            ofmap_ptrs_[i] = ptr;
-        }
-
         // Force user to provide original image or original shape
         throw std::runtime_error(
                 "MxPrepost.postprocess(ofmaps) now requires original image or (ori_w, ori_h).\n"
@@ -162,16 +150,12 @@ class BindMxPrepost {
     MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps,
                                     const py::array& original_image) {
 
-        // init ofmap ptrs
-        if (ofmap_ptrs_.empty()) {
-            ofmap_ptrs_.resize(ofmaps.size());
-        }
-
         // assign ofmap ptrs
+        std::vector<float*> ofmap_ptrs(ofmaps.size());
         for (int i = 0; i < static_cast<int>(ofmaps.size()); ++i) {
             py::buffer_info info = ofmaps[i].request();
             float* ptr = (float*)info.ptr;
-            ofmap_ptrs_[i] = ptr;
+            ofmap_ptrs[i] = ptr;
         }
 
         // convert numpy to cv::Mat (original image)
@@ -179,28 +163,24 @@ class BindMxPrepost {
 
         // call postprocess
         MX::Runtime::Result result;
-        prepost_->postprocess(ofmap_ptrs_, result, img);  // <-- requires C++ overload
+        prepost_->postprocess(ofmap_ptrs, result, img);  // <-- requires C++ overload
         return result;
     }
 
     // NEW overload: postprocess(ofmaps, ori_w, ori_h)
-    MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps, int ori_w, int ori_h) {
-
-        // init ofmap ptrs
-        if (ofmap_ptrs_.empty()) {
-            ofmap_ptrs_.resize(ofmaps.size());
-        }
+    MX::Runtime::Result postprocess(const std::vector<py::array>& ofmaps, int ori_h, int ori_w) {
 
         // assign ofmap ptrs
+        std::vector<float*> ofmap_ptrs(ofmaps.size());
         for (int i = 0; i < static_cast<int>(ofmaps.size()); ++i) {
             py::buffer_info info = ofmaps[i].request();
             float* ptr = (float*)info.ptr;
-            ofmap_ptrs_[i] = ptr;
+            ofmap_ptrs[i] = ptr;
         }
 
         // call postprocess
         MX::Runtime::Result result;
-        prepost_->postprocess(ofmap_ptrs_, result, ori_w, ori_h);  // <-- requires C++ overload
+        prepost_->postprocess(ofmap_ptrs, result, ori_h, ori_w);  // <-- requires C++ overload
         return result;
     }
     py::array draw(py::array& arr, const MX::Runtime::Result& result) {
@@ -215,7 +195,6 @@ class BindMxPrepost {
 
   private:
     MxPrepost* prepost_;
-    std::vector<float*> ofmap_ptrs_;
     std::vector<int> in_shape_;
 };
 
@@ -325,6 +304,6 @@ Args:
                  py::overload_cast<const std::vector<py::array>&, int, int>(
                          &BindMxPrepost::postprocess),
                  py::arg("ofmaps"),
-                 py::arg("ori_w"),
-                 py::arg("ori_h"));
+                 py::arg("ori_h"),
+                 py::arg("ori_w"));
 }

@@ -15,7 +15,7 @@ using namespace MX::Runtime;
 namespace {
 
     using CreatorFn =
-            std::function<MxPrepost*(MxAccl*, const YoloUserConfig&, const std::string&)>;
+            std::function<MxPrepost*(MxAcclBase*, const YoloUserConfig&, const std::string&)>;
 
     const std::unordered_map<std::string, CreatorFn> kRegistry = {
             {"yolov7-det",
@@ -24,10 +24,10 @@ namespace {
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
              }},
-            {"yolov8-seg",
-             [](auto* a, const auto& c, const auto& t) {
-                 return new YoloUltralyticsSegment(a, c, t);
-             }},
+            // {"yolov8-seg",
+            //  [](auto* a, const auto& c, const auto& t) {
+            //      return new YoloUltralyticsSegment(a, c, t);
+            //  }},
             {"yolov8-pose",
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsPose(a, c, t);
@@ -42,10 +42,10 @@ namespace {
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
              }},
-            {"yolov11-seg",
-             [](auto* a, const auto& c, const auto& t) {
-                 return new YoloUltralyticsSegment(a, c, t);
-             }},
+            // {"yolov11-seg",
+            //  [](auto* a, const auto& c, const auto& t) {
+            //      return new YoloUltralyticsSegment(a, c, t);
+            //  }},
             {"yolov11-pose",
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsPose(a, c, t);
@@ -86,7 +86,7 @@ namespace {
 // ------------------------
 // Throwing factory
 // ------------------------
-MxPrepost* MxPrepost::create(MxAccl* accl, const std::string& task, const YoloUserConfig& config) {
+MxPrepost* MxPrepost::create(MxAcclBase* accl, const std::string& task, const YoloUserConfig& config) {
     auto it = kRegistry.find(task);
     if (it != kRegistry.end()) {
         return it->second(accl, config, task);

@@ -18,7 +18,7 @@ It is intended to be used inside the **MXA input/output callbacks** (via `mxapi.
 4. Call:
 
    * `preprocess(frame)` in input callback
-   * `postprocess(mxa_output, ori_width, ori_height)` or `postprocess(mxa_output, ori_frame)` in output callback
+   * `postprocess(mxa_output, ori_height, ori_width)` or `postprocess(mxa_output, ori_frame)` in output callback
    * `draw(frame, result)` for visualization
   
 ```python
@@ -67,8 +67,8 @@ class App:
         # Postprocess using original dimensions
         result = self.pp.postprocess(
             mxa_output,
-            self.ori_width,
-            self.ori_height
+            self.ori_height,
+            self.ori_width
         )
 
         # Access outputs (depending on task)
@@ -134,7 +134,7 @@ prepost = mxprepost.MxPrepost(
 * `task` examples:
 
   * `yolov8-det`
-  * `yolov8-seg`
+  * `yolov11-det`
   * `yolov11-pose`
 * `model_id` is required only if multiple models are compiled into the same DFP.
 
@@ -172,7 +172,7 @@ ln -sfv ../../pymodule/build/mxprepost.cpython-*.so .
 
 ### Notes
 
-* Prefer `postprocess(ofmaps, result, ori_w, ori_h)` when you already know original frame size.
+* Prefer `postprocess(ofmaps, result, ori_h, ori_w)` when you already know original frame size.
 * Use `postprocess(ofmaps, result, original_frame)` if you have the original `cv::Mat` available in the output callback.
 
 
@@ -191,10 +191,10 @@ Only `mxapi.MxAccl` is supported.
 # Supported Models
 
 * ✅ YOLOv7 (det only)
-* ✅ YOLOv8 (det / seg / pose)
+* ✅ YOLOv8 (det / pose)
 * ✅ YOLOv9 (det only)
 * ✅ YOLOv10 (det only)
-* ✅ YOLOv11 (det / seg / pose)
+* ✅ YOLOv11 (det / pose)
 * ✅ Custom detection datasets
 
 
