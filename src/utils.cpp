@@ -1,3 +1,4 @@
+#include <memx/accl/utils/macros.h>
 
 #include "utils.h"
 
@@ -162,10 +163,10 @@ namespace MX::Prepost::Util {
     LetterboxParams compute_letterbox(int ori_w, int ori_h, int model_w, int model_h) {
 
         // Required parameters
-        if (ori_w <= 0) {
+        if (UNLIKELY(ori_w <= 0)) {
             throw std::invalid_argument("ori_width must be provided for YoloUserConfig.");
         }
-        if (ori_h <= 0) {
+        if (UNLIKELY(ori_h <= 0)) {
             throw std::invalid_argument("ori_height must be provided for YoloUserConfig.");
         }
 
@@ -314,10 +315,21 @@ namespace MX::Prepost::Util {
 
             // Numerically stable Softmax: find max first
             float local_max = side_dist_buf[0];
+
+            // cool optimization: if possible, use AVX512 for finding the max
+            #if defined(__AVX512F__)
+            #pragma omp simd reduction(max : local_max)
+            for (int i = 0; i < 16; ++i) { // re-checking the 0 is to align the simd
+                if (side_dist_buf[i] > local_max)
+                    local_max = side_dist_buf[i];
+            }
+            #else
+            // else the scalar version is faster
             for (int i = 1; i < 16; ++i) {
                 if (side_dist_buf[i] > local_max)
                     local_max = side_dist_buf[i];
             }
+            #endif
 
             float softmax_sum = 0.0f;
             float weighted_sum = 0.0f;
@@ -425,6 +437,7 @@ namespace MX::Prepost::Util {
         return s;
     }
 
+    // Levenshtein distance implementation for string similarity
     std::size_t levenshtein(const std::string& a, const std::string& b) {
         const std::size_t n = a.size(), m = b.size();
         if (n == 0)

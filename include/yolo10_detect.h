@@ -30,8 +30,8 @@ namespace MX {
             //-----------------------------
             // model-specific constants
             static constexpr int    COORD_FMAP_SIZE = 64; // number of channels in the coordinate ofmap
-            static constexpr size_t kNumPostProcessLayers = 3; // always 3
-            static constexpr size_t total_preds_ = 8400; // number of predictions -- fixed by model arch
+            static constexpr std::array<int, 3> STRIDES = {8, 16, 32}; // fixed by model arch
+            static constexpr int    NUM_LAYERS = STRIDES.size();
             //-----------------------------
 
             void postprocess_impl(const std::vector<float*>& outputs,

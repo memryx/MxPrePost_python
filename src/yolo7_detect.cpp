@@ -1,7 +1,9 @@
+#include <memx/accl/MxAccl.h>
+#include <memx/accl/utils/macros.h>
+
 #include "yolo7_detect.h"
 
 #include "config_finalizer.h"
-#include "memx/accl/MxAccl.h"
 #include "utils.h"
 
 using namespace MX::Runtime;
@@ -158,7 +160,7 @@ void Yolo7Detect::postprocess(const std::vector<float*>& outputs,
                               Result& result,
                               int ori_w,
                               int ori_h) {
-    if (ori_w <= 0 || ori_h <= 0) {
+    if (UNLIKELY(ori_w <= 0 || ori_h <= 0)) {
         throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
     }
     postprocess_impl(outputs, result, ori_w, ori_h);

@@ -47,10 +47,6 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
     // in case the user is forcing a particular mapping
     if(cfg_.override_layer_mapping.empty()){
         // match expected shapes with actual model input shapes to find the correct ports for each layer
-        // TODO: there is a CORNER CASE where this DOES NOT WORK if the number of classes == COORD_FMAP_SIZE
-        //       in this situation, we'll have to guesstimate based on the DFP.... port order (coord then conf)
-        //       generally holds true, but we'll warn the user to please provide a full layer_name to port
-        //       mapping if they encounter any issues!
         int num_ofmaps = model_info.out_featuremap_shapes.size();
 
         if(cfg_.class_labels.size() != COORD_FMAP_SIZE){
@@ -223,7 +219,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>&, Result&) {
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs,
                                         Result& result,
                                         const cv::Mat& original_image) {
-    if (original_image.empty()) {
+    if (UNLIKELY(original_image.empty())) {
         throw std::invalid_argument("original_image must be non-empty for postprocess");
     }
     postprocess_impl(outputs, result, original_image.cols, original_image.rows);
@@ -233,7 +229,7 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs,
                                         Result& result,
                                         int ori_w,
                                         int ori_h) {
-    if (ori_w <= 0 || ori_h <= 0) {
+    if (UNLIKELY(ori_w <= 0 || ori_h <= 0)) {
         throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
     }
     postprocess_impl(outputs, result, ori_w, ori_h);

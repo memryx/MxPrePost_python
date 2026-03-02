@@ -33,6 +33,7 @@ namespace MX {
             static constexpr std::array<int, 3> STRIDES = {8, 16, 32}; // fixed by model arch
             static constexpr int    NUM_LAYERS = STRIDES.size();
             static constexpr int    MASK_DIV_FACTOR = 4; // YOLO seg masks are usually 1/4 the input size
+            static constexpr int    MASK_CHANNELS = 32; // used for mask coef and mask proto fmaps
             //-----------------------------
             size_t total_preds_;
             
