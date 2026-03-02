@@ -6,7 +6,7 @@
 using namespace MX::Runtime;
 using namespace MX::Prepost::Util;
 
-YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
+YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAcclBase* accl,
                                              const YoloUserConfig& user_cfg,
                                              const std::string& task) {
 
@@ -17,7 +17,7 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
     smgr_ = std::make_unique<MX::Prepost::Util::ScoreManager>(cfg_.conf, cfg_.fast_sigmoid);
 
     // Load layer configuration from embedded YAML
-    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_w, cfg_.model_h);
+    yolo_post_layers_ = MX::Prepost::Util::loadYoloLayerConfig(task, cfg_.model_h, cfg_.model_w);
 }
 
 cv::Mat YoloUltralyticsDetect::preprocess(const cv::Mat& image) {
@@ -53,24 +53,25 @@ void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs,
     if (original_image.empty()) {
         throw std::invalid_argument("original_image must be non-empty for postprocess");
     }
-    postprocess_impl(outputs, result, original_image.cols, original_image.rows);
+    postprocess_impl(outputs, result, original_image.rows, original_image.cols);
 }
 
 void YoloUltralyticsDetect::postprocess(const std::vector<float*>& outputs,
                                         Result& result,
-                                        int ori_w,
-                                        int ori_h) {
+                                        int ori_h,
+                                        int ori_w) {
     if (ori_w <= 0 || ori_h <= 0) {
         throw std::invalid_argument("ori_w and ori_h must be > 0 for postprocess");
     }
-    postprocess_impl(outputs, result, ori_w, ori_h);
+    postprocess_impl(outputs, result, ori_h, ori_w);
 }
 
 void YoloUltralyticsDetect::postprocess_impl(const std::vector<float*>& outputs,
                                              Result& result,
-                                             int ori_w,
-                                             int ori_h) {
+                                             int ori_h,
+                                             int ori_w) {
 
+    result.boxes.clear();
     const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
 
     // Candidate Gathering
@@ -115,6 +116,17 @@ void YoloUltralyticsDetect::postprocess_impl(const std::vector<float*>& outputs,
             coord[1] = (coord[1] - lb.pad_top) / lb.ratio;
             coord[2] = (coord[2] - lb.pad_left) / lb.ratio;
             coord[3] = (coord[3] - lb.pad_top) / lb.ratio;
+
+            // Clip to image bounds
+            coord[0] = std::max(0.0f, std::min(coord[0], (float)ori_w));
+            coord[1] = std::max(0.0f, std::min(coord[1], (float)ori_h));
+            coord[2] = std::max(0.0f, std::min(coord[2], (float)ori_w));
+            coord[3] = std::max(0.0f, std::min(coord[3], (float)ori_h));
+
+            // Drop invalid/degenerate boxes
+            if (coord[2] <= coord[0] || coord[3] <= coord[1]) {
+                continue;
+            }
 
             // store bbox
             all_boxes.emplace_back(coord[0],

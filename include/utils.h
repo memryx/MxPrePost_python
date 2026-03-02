@@ -128,7 +128,7 @@ namespace MX::Prepost::Util {
      * @return Vector of 3 LayerParams (one per layer)
      */
     std::vector<LayerParams>
-    loadYoloLayerConfig(const std::string& task, int model_w, int model_h);
+    loadYoloLayerConfig(const std::string& task, int model_h, int model_w);
 
     std::string normalize(std::string s);
 

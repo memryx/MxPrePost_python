@@ -3,7 +3,7 @@
 
 // Forward declaration
 namespace MX::Runtime {
-    class MxAccl;
+    class MxAcclBase;
 }
 
 namespace MX {
@@ -53,12 +53,12 @@ namespace MX {
             virtual void draw(cv::Mat& image, const Result& result) = 0;
 
             // Factory method (may throw std::runtime_error on invalid task)
-            static MxPrepost* create(MX::Runtime::MxAccl* accl,
+            static MxPrepost* create(MX::Runtime::MxAcclBase* accl,
                                      const std::string& task,
                                      const YoloUserConfig& config);
 
             // No-throw factory (for library users who don't want exceptions)
-            static bool create_safe(MX::Runtime::MxAccl* accl,
+            static bool create_safe(MX::Runtime::MxAcclBase* accl,
                                     const std::string& task,
                                     const YoloUserConfig& config,
                                     std::unique_ptr<MxPrepost>& out,

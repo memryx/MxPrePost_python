@@ -352,7 +352,7 @@ namespace MX::Prepost::Util {
     }
 
     std::vector<LayerParams>
-    loadYoloLayerConfig(const std::string& task, int model_w, int model_h) {
+    loadYoloLayerConfig(const std::string& task, int model_h, int model_w) {
         // Load YAML config
         YAML::Node config;
         try {

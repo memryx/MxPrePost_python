@@ -18,7 +18,7 @@ It is intended to be used inside the **MXA input/output callbacks** (via `mxapi.
 4. Call:
 
    * `preprocess(frame)` in input callback
-   * `postprocess(mxa_output, ori_width, ori_height)` or `postprocess(mxa_output, ori_frame)` in output callback
+   * `postprocess(mxa_output, ori_height, ori_width)` or `postprocess(mxa_output, ori_frame)` in output callback
    * `draw(frame, result)` for visualization
   
 ```python
@@ -67,8 +67,8 @@ class App:
         # Postprocess using original dimensions
         result = self.pp.postprocess(
             mxa_output,
-            self.ori_width,
-            self.ori_height
+            self.ori_height,
+            self.ori_width
         )
 
         # Access outputs (depending on task)
@@ -134,7 +134,7 @@ prepost = mxprepost.MxPrepost(
 * `task` examples:
 
   * `yolov8-det`
-  * `yolov8-seg`
+  * `yolov11-det`
   * `yolov11-pose`
 * `model_id` is required only if multiple models are compiled into the same DFP.
 
@@ -151,10 +151,7 @@ cd MxPrepost
 ```bash
 # activate your virtualenv with MemryX SDK 2.2 
 source ~/.mx/bin/activate
-cd pymodule
-mkdir build && cd build
-cmake ..
-make -j
+sh build.sh
 ```
 
 ---
@@ -170,15 +167,187 @@ ln -sfv ../../pymodule/build/mxprepost.cpython-*.so .
 >Copy the .so file to the same path as your python code if working in another directory. 
 ---
 
+## 3️⃣ Run YOLO Demo
+
+### Webcam Example
+
+```bash
+python run.py \
+  -d models/yolov8.dfp \
+  -t yolov8-det \
+  --video_paths /dev/video0
+```
+
+### Video File Example
+
+```bash
+python run.py \
+  -d models/yolov8.dfp \
+  -t yolov8-det \
+  --video_paths videos/sample.mp4
+```
+
+### Multiple Streams Example
+
+```bash
+python run.py \
+  -d models/yolov8.dfp \
+  -t yolov8-det \
+  --video_paths /dev/video0 videos/sample.mp4
+```
+
+### Disable Display (Benchmark Mode)
+
+```bash
+python run.py \
+  -d models/yolov8.dfp \
+  -t yolov8-det \
+  --video_paths /dev/video0 \
+  --no-show
+```
+
+---
+
+## CLI Arguments
+
+| Argument        | Description                                                  | Default                        |
+| --------------- | ------------------------------------------------------------ | ------------------------------ |
+| `-d`, `--dfp`   | Path to compiled `.dfp` file                                 | **Required**                   |
+| `-t`, `--task`  | YOLO task (`yolov8-det`, `yolov10-det`, `yolov11-pose`, etc.) | **Required**                   |
+| `--video_paths` | One or more input sources (camera or video files)            | `/dev/video0`                  |
+| `--no-show`     | Disable display window                                       | Display **enabled** by default |
+
+---
+
+## C++ Usage Pattern (MXA Integration)
+
+The C++ API follows the same pattern as Python:
+
+1. Create `MX::Runtime::MxAccl`
+2. Connect input/output callbacks
+3. Create `MxPrepost` with the accelerator + task
+4. Call:
+
+   * `preprocess(frame)` in the **input callback**
+   * `postprocess(outputs, ori_w, ori_h)` (or `postprocess(outputs, result, original_image)`) in the **output callback**
+   * `draw(frame, result)` for visualization
+
+### Minimal C++ snippet (mxprepost inside callbacks)
+
+```cpp
+#include <memx/accl/MxAccl.h>
+#include <memx/prepost/MxPrepost.h>
+#include <opencv2/opencv.hpp>
+
+using namespace MX::Runtime;
+
+// Create MxAccl (dfp path, device ids, use_model_shape flags, local)
+MxAccl accl{dfp_path, {0}, {false, false}, /*local=*/false};
+
+//---------------------------------------------------------------
+//-------------------------- MxPrepost --------------------------
+//---------------------------------------------------------------
+// Create MxPrepost (task examples: "yolov8-det", "yolov10-det", "yolov11-pose")
+YoloUserConfig cfg;
+cfg.conf = 0.3f;
+cfg.iou  = 0.4f;
+// cfg.class_agnostic = True // Default is False, set to True if your model is class-agnostic
+std::unique_ptr<MxPrepost> pp{MxPrepost::create(&accl, task, cfg)};
+
+// Get original dimensions once (from your cv::VideoCapture)
+int ori_w = (int)cap.get(cv::CAP_PROP_FRAME_WIDTH);
+int ori_h = (int)cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+
+// --- Input callback: capture + preprocess ---
+auto in_cb = [&](std::vector<const MX::Types::FeatureMap*> dst, int stream_id) -> bool {
+    cv::Mat frame;
+    if (!cap.read(frame)) return false;
+
+    //---------------------------------------------------------------
+	//-------------------------- MxPrepost --------------------------
+	//---------------------------------------------------------------
+    std::unique_ptr<MxPrepost> pp;
+
+    // ===========================
+    // Method 1: Throwing create()
+    // ===========================
+    try {
+        pp.reset(MxPrepost::create(&accl, task, cfg));   // may throw (e.g., unsupported task)
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to create MxPrepost: " << e.what() << "\n";
+        return 1; // or handle error appropriately
+    }
+
+    // ==================================
+    // Method 2: No-throw create_safe()
+    // ==================================
+    // std::string err;
+    // if (!MxPrepost::create_safe(&accl, task, cfg, pp, err)) {
+    //     std::cerr << "Failed to create MxPrepost: " << err << "\n";
+    //     return 1; // or handle error appropriately
+    // }
+
+    dst[0]->set_data(reinterpret_cast<float*>(input.data));
+    return true;
+};
+
+// --- Output callback: postprocess
+auto out_cb = [&](std::vector<const MX::Types::FeatureMap*> outs, int stream_id) -> bool {
+    // Copy accelerator outputs into your own float buffers, then build float* vector:
+    
+    //---------------------------------------------------------------
+	//-------------------------- MxPrepost --------------------------
+	//---------------------------------------------------------------
+    Result result;
+    pp->postprocess(ofmap_ptrs, result, ori_h, ori_w);   // or: pp->postprocess(ofmap_ptrs, result, original_frame)
+
+    // Access outputs (depending on task)
+    // ---------------------------
+    // Detection (Bounding Boxes)
+    // ---------------------------
+    for (const auto& box : result.boxes) {
+        // box.xyxy = [x1,y1,x2,y2], box.xywh = [xc,yc,w,h]
+        // box.conf, box.cls_id, box.cls_name
+    }
+
+    // ---------------------------
+    // Segmentation (polygons)
+    // ---------------------------
+    for (const auto& mask : result.masks) {
+        // mask.xys is a polygon: vector<Point2f>
+        // mask.cls_id
+    }
+
+    // ---------------------------
+    // Pose (keypoints)
+    // ---------------------------
+    for (size_t det_id = 0; det_id < result.keypoints.size(); ++det_id) {
+        const auto& kps = result.keypoints[det_id]; // vector<Keypoint>
+        // each kp has kp.xy (Point2f) and kp.conf
+    }
+
+    // Optional visualization
+    // pp->draw(frame, result);
+
+    return true;
+};
+
+accl.connect_stream(in_cb, out_cb, /*stream_id=*/0);
+accl.start();
+accl.wait();
+```
+
+---
+
 ### Notes
 
-* Prefer `postprocess(ofmaps, result, ori_w, ori_h)` when you already know original frame size.
+* Prefer `postprocess(ofmaps, result, ori_h, ori_w)` when you already know original frame size.
 * Use `postprocess(ofmaps, result, original_frame)` if you have the original `cv::Mat` available in the output callback.
 
 
 # Compatibility
 
-⚠️ This library does **not** support true python Accl API:
+⚠️ This library does **not** support legacy Accl bindings:
 
 * `SyncAccl`
 * `AsyncAccl`
@@ -191,10 +360,10 @@ Only `mxapi.MxAccl` is supported.
 # Supported Models
 
 * ✅ YOLOv7 (det only)
-* ✅ YOLOv8 (det / seg / pose)
+* ✅ YOLOv8 (det / pose)
 * ✅ YOLOv9 (det only)
 * ✅ YOLOv10 (det only)
-* ✅ YOLOv11 (det / seg / pose)
+* ✅ YOLOv11 (det / pose)
 * ✅ Custom detection datasets
 
 

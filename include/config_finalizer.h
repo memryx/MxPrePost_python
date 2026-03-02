@@ -4,14 +4,14 @@
 
 // forward declaration
 namespace MX::Runtime {
-    class MxAccl;
+    class MxAcclBase;
 }
 
 namespace MX {
     namespace Runtime {
         class ConfigFinalizer {
           public:
-            static YoloFinalConfig finalize(MX::Runtime::MxAccl* accl,
+            static YoloFinalConfig finalize(MX::Runtime::MxAcclBase* accl,
                                             const YoloUserConfig& config);
         };
     }
