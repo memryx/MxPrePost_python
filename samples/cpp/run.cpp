@@ -251,13 +251,11 @@ class YoloApp {
         }
 
         bool local = false;
-        std::vector<int> device_ids{0,1};
+        std::vector<int> device_ids{3};
         std::array<bool, 2> use_model_shape{false, false};
         SchedulerOptions options{200, 0, 16, 21, false, 11000, false, 50, 6};
 
         MxAccl accl{fs::path(args_.dfp), device_ids, use_model_shape, local, options};
-        accl.set_operating_frequency(0, MX::Types::FREQ_500MHz);
-        accl.set_operating_frequency(1, MX::Types::FREQ_500MHz);
 
         // Connect streams first
         for (int i = 0; i < num_streams_; ++i) {
@@ -273,9 +271,14 @@ class YoloApp {
         config.conf = 0.3f;
         config.iou = 0.4f;
         config.model_id = 0;
-        // config.classmap_path = "classes.txt";
-        // config.valid_classes = {0};
-        config.custom_class_labels = {"person", "vehicle", "animal"};
+        //config.classmap_path = "classes.txt";
+        //config.valid_classes = {0};
+        //config.custom_class_labels = {"person", "vehicle", "animal"};
+
+        //config.override_layer_mapping[8] = {"/model.22/cv2.0/cv2.0.2/Conv_output_0", "/model.22/cv3.0/cv3.0.2/Conv_output_0"};
+        //config.override_layer_mapping[16] = {"/model.22/cv2.1/cv2.1.2/Conv_output_0", "/model.22/cv3.1/cv3.1.2/Conv_output_0"};
+        //config.override_layer_mapping[32] = {"/model.22/cv2.2/cv2.2.2/Conv_output_0", "/model.22/cv3.2/cv3.2.2/Conv_output_0"};
+
 
         // ===========================
         // Method 1: Throwing create()

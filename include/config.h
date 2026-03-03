@@ -176,8 +176,9 @@ namespace MX {
             int model_id = 0;
 
             // [Optional/Advanced] map of stride --> coord and conf port layer_names
+            // (and mask_coef port, and keypt port for pose, etc...)
             // note: yolov7 doesn't separate coord and conf
-            std::map<int, std::array<std::string, 2>> override_layer_mapping;
+            std::map<int, std::vector<std::string>> override_layer_mapping;
         };
 
         struct YoloFinalConfig {
@@ -197,7 +198,7 @@ namespace MX {
 
             int model_id;
             
-            std::map<int, std::array<std::string, 2>> override_layer_mapping;
+            std::map<int, std::vector<std::string>> override_layer_mapping;
         };
     }
 }

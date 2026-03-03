@@ -110,7 +110,7 @@ YoloUltralyticsDetect::YoloUltralyticsDetect(MX::Runtime::MxAccl* accl,
 
     }
     else {
-        // user provided mapping ( <stride (int), pair<coord name, conf name>> )
+        // user provided mapping ( <stride (int), vect<coord name, conf name>> )
         // parse the model_info to find the ports corresponding to the provided layer_names,
         // then get assign those ports to the correct layer in yolo_post_layers_ based on the stride,
         // then double check that the shapes match the expected shapes for that stride/layer

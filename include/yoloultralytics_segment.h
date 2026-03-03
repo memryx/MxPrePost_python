@@ -47,6 +47,8 @@ namespace MX {
             std::unique_ptr<MX::Prepost::Util::ScoreManager> smgr_;
             YoloFinalConfig cfg_;
             uint8_t mask_proto_port_;
+            int mask_proto_w_;
+            int mask_proto_h_;
         };
 
     }

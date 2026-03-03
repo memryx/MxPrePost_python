@@ -4,7 +4,7 @@
 #include "yolo7_detect.h"
 #include "yoloultralytics_detect.h"
 //#include "yoloultralytics_pose.h"
-//#include "yoloultralytics_segment.h"
+#include "yoloultralytics_segment.h"
 
 #include <limits>
 #include <string>
@@ -25,10 +25,10 @@ namespace {
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
              }},
-            //{"yolov8-seg",
-            // [](auto* a, const auto& c, const auto& t) {
-            //     return new YoloUltralyticsSegment(a, c, t);
-            // }},
+            {"yolov8-seg",
+             [](auto* a, const auto& c, const auto& t) {
+                 return new YoloUltralyticsSegment(a, c, t);
+             }},
             //{"yolov8-pose",
             // [](auto* a, const auto& c, const auto& t) {
             //     return new YoloUltralyticsPose(a, c, t);
@@ -43,10 +43,10 @@ namespace {
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
              }},
-            //{"yolov11-seg",
-            // [](auto* a, const auto& c, const auto& t) {
-            //     return new YoloUltralyticsSegment(a, c, t);
-            // }},
+            {"yolov11-seg",
+             [](auto* a, const auto& c, const auto& t) {
+                 return new YoloUltralyticsSegment(a, c, t);
+             }},
             //{"yolov11-pose",
             // [](auto* a, const auto& c, const auto& t) {
             //     return new YoloUltralyticsPose(a, c, t);
