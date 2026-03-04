@@ -364,9 +364,10 @@ void YoloUltralyticsSegment::postprocess_impl(const std::vector<float*>& outputs
     std::vector<BBox> all_boxes;
     std::vector<float*> all_mask_coefs;  // mask coefficient base ptrs
 
+    // TODO/HINT: try preallocating these externally and use RentalStore from MX_API
+    //            to avoid the frequent allocate/deallocate of memory for each function call
     all_boxes.reserve(total_preds_);
     all_mask_coefs.reserve(total_preds_);
-
 
     for (size_t layer_id = 0; layer_id < NUM_LAYERS; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];

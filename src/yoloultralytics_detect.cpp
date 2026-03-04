@@ -243,8 +243,10 @@ void YoloUltralyticsDetect::postprocess_impl(const std::vector<float*>& outputs,
     const auto lb = compute_letterbox(ori_w, ori_h, cfg_.model_w, cfg_.model_h);
 
     // Candidate Gathering
+    // TODO/HINT: try preallocating these externally and use RentalStore from MX_API
+    //            to avoid the frequent allocate/deallocate of memory for each function call
     std::vector<BBox> all_boxes;
-    all_boxes.reserve(total_preds_);
+    all_boxes.reserve(total_preds_); // i.e., don't do this
 
     for (size_t layer_id = 0; layer_id < NUM_LAYERS; ++layer_id) {
         const auto& layer = yolo_post_layers_[layer_id];

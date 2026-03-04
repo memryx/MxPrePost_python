@@ -3,7 +3,7 @@
 //#include "yolo10_detect.h"
 #include "yolo7_detect.h"
 #include "yoloultralytics_detect.h"
-//#include "yoloultralytics_pose.h"
+#include "yoloultralytics_pose.h"
 #include "yoloultralytics_segment.h"
 
 #include <limits>
@@ -29,10 +29,10 @@ namespace {
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsSegment(a, c, t);
              }},
-            //{"yolov8-pose",
-            // [](auto* a, const auto& c, const auto& t) {
-            //     return new YoloUltralyticsPose(a, c, t);
-            // }},
+            {"yolov8-pose",
+             [](auto* a, const auto& c, const auto& t) {
+                 return new YoloUltralyticsPose(a, c, t);
+             }},
             {"yolov9-det",
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
@@ -47,10 +47,10 @@ namespace {
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsSegment(a, c, t);
              }},
-            //{"yolov11-pose",
-            // [](auto* a, const auto& c, const auto& t) {
-            //     return new YoloUltralyticsPose(a, c, t);
-            // }},
+            {"yolov11-pose",
+             [](auto* a, const auto& c, const auto& t) {
+                 return new YoloUltralyticsPose(a, c, t);
+             }},
     };
 
     static std::string suggest_task(const std::string& input) {
@@ -88,9 +88,12 @@ namespace {
 // Throwing factory
 // ------------------------
 MxPrepost* MxPrepost::create(MxAccl* accl, const std::string& task, const YoloUserConfig& config) {
-    auto it = kRegistry.find(task);
+
+    std::string normalized_task = MX::Prepost::Util::normalize(task);
+
+    auto it = kRegistry.find(normalized_task);
     if (it != kRegistry.end()) {
-        return it->second(accl, config, task);
+        return it->second(accl, config, normalized_task);
     }
 
     std::ostringstream msg;

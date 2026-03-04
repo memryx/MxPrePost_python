@@ -13,38 +13,6 @@
 namespace MX {
     namespace Prepost {
 
-        // Pairs of keypoints for drawing skeleton
-        constexpr std::array<std::pair<int, int>, 18> KEYPOINT_PAIRS = {{
-                {0, 1},
-                {0, 2},
-                {1, 3},
-                {2, 4},
-                {0, 5},
-                {0, 6},
-                {5, 7},
-                {7, 9},
-                {6, 8},
-                {8, 10},
-                {5, 6},
-                {5, 11},
-                {6, 12},
-                {11, 12},
-                {11, 13},
-                {13, 15},
-                {12, 14},
-                {14, 16},
-        }};
-
-        // Color list for drawing keypoints
-        const std::vector<cv::Scalar> KEYPOINT_COLORS = {
-                cv::Scalar(128, 255, 0),   cv::Scalar(255, 128, 50),  cv::Scalar(128, 0, 255),
-                cv::Scalar(255, 255, 0),   cv::Scalar(255, 102, 255), cv::Scalar(255, 51, 255),
-                cv::Scalar(51, 153, 255),  cv::Scalar(255, 153, 153), cv::Scalar(255, 51, 51),
-                cv::Scalar(153, 255, 153), cv::Scalar(51, 255, 51),   cv::Scalar(0, 255, 0),
-                cv::Scalar(255, 0, 51),    cv::Scalar(153, 0, 153),   cv::Scalar(51, 0, 51),
-                cv::Scalar(0, 0, 0),       cv::Scalar(0, 102, 255),   cv::Scalar(0, 51, 255),
-                cv::Scalar(0, 153, 255),   cv::Scalar(0, 153, 153)};
-
         /**
          * @brief Labels of COCO dataset, COCO 2014 and 2017 uses the same images but
          * different train/val/test splits. Also, COCO defines 91 classes but the data

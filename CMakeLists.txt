@@ -30,39 +30,8 @@ file(GLOB local_src src/*.cpp)
 
 find_package(OpenCV REQUIRED)
 
-# Use FetchContent to get yaml-cpp instead of system package
-include(FetchContent)
-FetchContent_Declare(
-    yaml-cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-    GIT_TAG        0.8.0  # Use a stable release tag
-)
-FetchContent_MakeAvailable(yaml-cpp)
 
-# Embed model-config.yaml into the binary
-set(MODEL_CONFIG_YAML "${CMAKE_CURRENT_SOURCE_DIR}/config/model-config.yaml")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${MODEL_CONFIG_YAML}")
-
-file(READ "${MODEL_CONFIG_YAML}" MODEL_CONFIG_YAML_CONTENT)
-
-# Generate the .cpp file with embedded YAML (in the build dir; no subdirectory)
-set(MODEL_CONFIG_EMBEDDED_CPP "${CMAKE_CURRENT_BINARY_DIR}/model_config_embedded.cpp")
-
-file(WRITE "${MODEL_CONFIG_EMBEDDED_CPP}"
-"// Auto-generated file - do not edit
-#include <string>
-
-namespace MX::Prepost::Config {
-    const std::string& getModelConfigYaml() {
-        static const std::string yaml_content = R\"mxprepost_yaml(
-${MODEL_CONFIG_YAML_CONTENT}
-)mxprepost_yaml\";
-        return yaml_content;
-    }
-}
-")
-
-add_library(mxprepost SHARED ${local_src} "${MODEL_CONFIG_EMBEDDED_CPP}")
+add_library(mxprepost SHARED ${local_src})
 
 # --------------------------------------------------
 # Testing logic:
@@ -89,7 +58,7 @@ target_include_directories(mxprepost PRIVATE
     include/
 )
 
-target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl yaml-cpp)
+target_link_libraries(mxprepost ${OpenCV_LIBS} mx_accl)
 
 
 add_subdirectory(samples/cpp)
