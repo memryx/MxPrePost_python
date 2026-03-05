@@ -33,6 +33,8 @@ namespace MX {
             static constexpr std::array<int, 3> STRIDES = {8, 16, 32}; // fixed by model arch
             static constexpr int    NUM_LAYERS = STRIDES.size();
             //-----------------------------
+            size_t total_preds_ = 300; // this is always 300 for YOLOv10 I guess?
+            
 
             void postprocess_impl(const std::vector<float*>& outputs,
                                   Result& result,

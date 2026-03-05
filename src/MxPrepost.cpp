@@ -39,6 +39,8 @@ namespace {
              }},
             //{"yolov10-det",
             // [](auto* a, const auto& c, const auto& t) { return new Yolo10Detect(a, c, t); }},
+            {"yolov10-det",
+             [](auto* a, const auto& c, const auto& t) { return new YoloUltralyticsDetect(a, c, t); }},
             {"yolov11-det",
              [](auto* a, const auto& c, const auto& t) {
                  return new YoloUltralyticsDetect(a, c, t);
