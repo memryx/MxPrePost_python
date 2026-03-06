@@ -122,10 +122,13 @@ prepost = mxprepost.MxPrepost(
     task="yolov8-det",            # [required] Expected format: yolov<n>-[det|seg|pose]
     conf=0.3,                     # [optional] Default 0.3
     iou=0.4,                      # [optional] Default 0.4
-    classmap_path="/path/to/classmap.txt"  # [optional] Path to a .txt file containing custom class names (one per line). Defaults to COCO dataset.
+    classmap_path="/path/to/classmap.txt"  # [optional] Path to a .txt file containing custom class names (one per line). Defaults to COCO dataset if not given.
+    custom_class_labels=List[str], # [optional] List of custom class labels, instead of using a text file input.
     valid_classes=[0],          # [optional] List of class IDs to return. All other detections will be ignored (e.g., [0] for person only in COCO dataset).
-    model_id=0                  # [optional] model_id in the .dfp file. Default 0
-    # class_agnostic=True,      # [optional] Default is False, set to True if your model is class-agnostic
+    class_agnostic=True,        # [optional] If False, use class-specific NMS. If True, use class-agnostic NMS. Default True.
+    fast_sigmoid=False,         # [optional] If True, use an approximated sigmoid function for slightly faster processing. Default False.
+    model_id=0,                 # [optional] model_id in the .dfp file. Default 0
+    override_layer_mapping={}   # [optional] Advanced feature to override the per-stride layer name->dfp port mapping.
 )
 ```
 
@@ -248,10 +251,9 @@ MxAccl accl{dfp_path, {0}, {false, false}, /*local=*/false};
 //-------------------------- MxPrepost --------------------------
 //---------------------------------------------------------------
 // Create MxPrepost (task examples: "yolov8-det", "yolov8-seg", "yolov11-pose")
-YoloUserConfig cfg;
+YoloUserConfig cfg; // inits with the defaults for COCO
 cfg.conf = 0.3f;
 cfg.iou  = 0.4f;
-// cfg.class_agnostic = True // Default is False, set to True if your model is class-agnostic
 std::unique_ptr<MxPrepost> pp{MxPrepost::create(&accl, task, cfg)};
 
 // Get original dimensions once (from your cv::VideoCapture)
@@ -364,6 +366,7 @@ Only `mxapi.MxAccl` is supported.
 * ✅ YOLOv9 (det only)
 * ✅ YOLOv10 (det only)
 * ✅ YOLOv11 (det / seg / pose)
-* ✅ Custom detection datasets
+* ✅ Custom detection datasets for all of the above
+* ✅ Custom model resolutions (not just 640x640)
 
 
